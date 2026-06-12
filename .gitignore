@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# uv
+.python-version
+
+# Node
+node_modules/
+frontend/dist/
+
+# Environment & secrets
+.env
+.env.local
+.monarch_session
+
+# Personal data — never tracked (copy config/properties.example.json to start)
+config/properties.json
+reports/
+CLAUDE.local.md
+
+# Logs
+*.log
+
+# Docker
+docker-compose.override.yml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+
+# Celery
+celerybeat-schedule
+celerybeat-schedule.db
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Claude Code
+.claude/
+
+# Playwright MCP
+.playwright-mcp/

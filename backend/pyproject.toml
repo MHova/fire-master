@@ -1,0 +1,30 @@
+[project]
+name = "fire-master"
+version = "0.1.0"
+description = "Personal finance dashboard for FIRE planning"
+readme = "../README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.0,<1",
+    "uvicorn[standard]>=0.34.0,<1",
+    "sqlalchemy[asyncio]>=2.0.36,<3",
+    "asyncpg>=0.30.0,<1",
+    "psycopg2-binary>=2.9.9,<3",
+    "alembic>=1.14.0,<2",
+    "pydantic>=2.10.0,<3",
+    "pydantic-settings>=2.7.0,<3",
+    "celery[redis]>=5.4.0,<6",
+    "redis>=5.2.0,<6",
+    "monarchmoneycommunity>=1.3.0,<2",
+    "python-jose[cryptography]>=3.3.0,<4",
+    "bcrypt>=4.0.0,<6",
+    "httpx>=0.28.0,<1",
+    "python-dotenv>=1.2.0,<2",
+    "anthropic>=0.52.0,<1",
+    "pytest>=8.0.0,<9",
+    "pytest-asyncio>=0.23.0,<1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

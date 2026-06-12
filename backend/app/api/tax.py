@@ -1,0 +1,108 @@
+"""Tax planning API routes."""
+
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.auth import get_current_user
+from app.core.database import get_db
+from app.engines.monte_carlo import MonteCarloEngine
+from app.engines.tax_engine import TaxEngine
+from app.schemas.tax import (
+    ACAAnalysisResponse,
+    BracketAnalysisResponse,
+    MonteCarloResponse,
+    RothConversionPlanResponse,
+    TaxScenarioInput,
+    TaxScenarioResponse,
+    WithdrawalPlanResponse,
+)
+
+router = APIRouter(prefix="/api/tax", tags=["tax"])
+
+
+@router.get("/bracket-analysis", response_model=BracketAnalysisResponse)
+async def get_bracket_analysis(
+    _user: str = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Current year income position within brackets, room to next bracket."""
+    engine = TaxEngine(db)
+    return await engine.analyze_brackets()
+
+
+@router.get("/withdrawal-plan", response_model=WithdrawalPlanResponse)
+async def get_withdrawal_plan(
+    years: int = Query(default=10, ge=1, le=50),
+    _user: str = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Optimized year-by-year withdrawal sequence."""
+    engine = TaxEngine(db)
+    plan = await engine.optimize_withdrawal_sequence(years=years)
+    return plan
+
+
+@router.get("/roth-conversion-plan", response_model=RothConversionPlanResponse)
+async def get_roth_conversion_plan(
+    target_bracket: float = Query(default=0.22, description="Fill up to this bracket rate"),
+    _user: str = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Recommended Roth conversion ladder with tax cost and lifetime savings."""
+    engine = TaxEngine(db)
+    plan = await engine.plan_roth_conversions(target_bracket_rate=target_bracket)
+    return plan
+
+
+@router.get("/aca-analysis", response_model=ACAAnalysisResponse)
+async def get_aca_analysis(
+    _user: str = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Current MAGI, ACA subsidy eligibility, cliff warnings."""
+    engine = TaxEngine(db)
+    analysis = await engine.analyze_brackets()
+    aca = analysis["aca"]
+    # Get household size from config
+    from app.engines.fire_projections import FireProjectionsEngine
+    fire_engine = FireProjectionsEngine(db)
+    config = await fire_engine.get_or_create_config()
+    tax_config = engine._get_tax_config(config)
+    return ACAAnalysisResponse(
+        magi=aca["magi"],
+        household_size=tax_config.get("household_size", 1),
+        fpl=aca["magi"] / (aca["fpl_percentage"] / 100) if aca["fpl_percentage"] > 0 else 0,
+        fpl_percentage=aca["fpl_percentage"],
+        subsidy_eligible=aca["subsidy_eligible"],
+        estimated_monthly_premium=aca["monthly_premium"],
+        estimated_monthly_subsidy=aca["monthly_subsidy"],
+        estimated_net_monthly_cost=aca["net_monthly_cost"],
+        cliff_distance=aca["cliff_distance"],
+        cliff_warning=aca["cliff_warning"],
+    )
+
+
+@router.post("/scenario", response_model=TaxScenarioResponse)
+async def run_tax_scenario(
+    data: TaxScenarioInput,
+    _user: str = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """What-if: e.g., 'what if I convert $50K to Roth this year?'"""
+    engine = TaxEngine(db)
+    return await engine.run_tax_scenario(
+        roth_conversion=data.roth_conversion,
+        extra_income=data.extra_income,
+        extra_deduction=data.extra_deduction,
+    )
+
+
+@router.get("/monte-carlo", response_model=MonteCarloResponse)
+async def run_monte_carlo(
+    runs: int = Query(default=1000, ge=100, le=10000),
+    _user: str = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Monte Carlo simulation — randomized return sequences."""
+    engine = MonteCarloEngine(db)
+    return await engine.run_simulation(n_runs=runs)

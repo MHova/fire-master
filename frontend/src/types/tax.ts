@@ -1,0 +1,166 @@
+// --- Bracket Analysis ---
+
+export interface BracketDetail {
+  rate: number;
+  income_in_bracket: number;
+  tax_in_bracket: number;
+  bracket_floor: number;
+  bracket_ceiling: number | null;
+}
+
+export interface BracketRoomInfo {
+  current_rate: number;
+  next_rate: number | null;
+  room_dollars: number;
+}
+
+export interface AccountBalanceDetail {
+  name: string;
+  balance: number;
+}
+
+export interface AccountBalanceSummary {
+  tax_deferred: number;
+  tax_free: number;
+  taxable: number;
+  already_taxed: number;
+  tax_deferred_accounts: AccountBalanceDetail[];
+  tax_free_accounts: AccountBalanceDetail[];
+  taxable_accounts: AccountBalanceDetail[];
+}
+
+export interface ACASnapshot {
+  magi: number;
+  fpl_percentage: number;
+  subsidy_eligible: boolean;
+  monthly_premium: number;
+  monthly_subsidy: number;
+  net_monthly_cost: number;
+  cliff_distance: number;
+  cliff_warning: boolean;
+}
+
+export interface BracketAnalysis {
+  filing_status: string;
+  gross_income: number;
+  standard_deduction: number;
+  taxable_income: number;
+  federal_tax: number;
+  federal_brackets: BracketDetail[];
+  federal_effective_rate: number;
+  federal_marginal_rate: number;
+  state_tax: number;
+  state_rate: number;
+  fica_tax: number;
+  total_tax: number;
+  overall_effective_rate: number;
+  bracket_room: BracketRoomInfo;
+  account_balances: AccountBalanceSummary;
+  aca: ACASnapshot;
+}
+
+// --- Withdrawal Plan ---
+
+export interface WithdrawalYear {
+  year: number;
+  age: number;
+  from_taxable: number;
+  from_deferred: number;
+  from_roth: number;
+  roth_conversion: number;
+  total_income: number;
+  ordinary_income: number;
+  capital_gains_income: number;
+  federal_tax: number;
+  state_tax: number;
+  fica_tax: number;
+  total_tax: number;
+  effective_rate: number;
+  after_tax_income: number;
+  magi: number;
+}
+
+export interface WithdrawalPlan {
+  years: WithdrawalYear[];
+  total_tax_paid: number;
+  average_effective_rate: number;
+  total_withdrawn: number;
+}
+
+// --- Roth Conversion Plan ---
+
+export interface RothConversionYear {
+  year: number;
+  age: number;
+  baseline_income: number;
+  conversion_amount: number;
+  total_taxable_income: number;
+  tax_on_conversion: number;
+  cumulative_converted: number;
+  magi_after_conversion: number;
+  bracket_filled_to: number;
+}
+
+export interface RothConversionPlan {
+  years: RothConversionYear[];
+  total_converted: number;
+  total_tax_paid: number;
+  estimated_tax_saved: number;
+  target_bracket_rate: number;
+  conversion_window: string;
+}
+
+// --- Tax Scenario ---
+
+export interface TaxScenarioInput {
+  roth_conversion?: number;
+  extra_income?: number;
+  extra_deduction?: number;
+}
+
+export interface TaxScenarioResponse {
+  base: {
+    gross_income: number;
+    taxable_income: number;
+    total_tax: number;
+    effective_rate: number;
+  };
+  scenario: {
+    gross_income: number;
+    taxable_income: number;
+    total_tax: number;
+    effective_rate: number;
+    roth_conversion: number;
+    extra_income: number;
+    extra_deduction: number;
+  };
+  delta: {
+    additional_tax: number;
+    marginal_rate_on_new_income: number;
+  };
+}
+
+// --- Monte Carlo ---
+
+export interface PercentileCurvePoint {
+  age: number;
+  p10: number;
+  p25: number;
+  p50: number;
+  p75: number;
+  p90: number;
+}
+
+export interface MonteCarloResult {
+  success_rate: number;
+  percentile_10: number;
+  percentile_25: number;
+  percentile_50: number;
+  percentile_75: number;
+  percentile_90: number;
+  mean_final_nw: number;
+  total_runs: number;
+  percentile_curves: PercentileCurvePoint[];
+  worst_final_nw: number;
+  best_final_nw: number;
+}

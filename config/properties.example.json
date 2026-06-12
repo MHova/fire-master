@@ -1,0 +1,96 @@
+{
+  "_description": "Property knowledge base — merchant mappings, costs, rental income. Copy to config/properties.json, replace with your properties, then run: cd backend && uv run python ../scripts/seed_properties.py. Used by the seed script and report scripts; the app reads the database at runtime.",
+  "_updated": "2026-06-11",
+
+  "properties": {
+    "coastal_condo": {
+      "name": "Coastal Condo",
+      "address": "123 Example Ave #1100, Beach City",
+      "value": 500000,
+      "loan_balance": 320000,
+      "purchase_price": 500000,
+      "purchase_date": null,
+      "color": "#b04a56",
+
+      "mortgage_merchants": ["Lender A Mortgage", "LENDER A MTG"],
+      "hoa_merchants": ["CondoPay", "Condo Assoc Web Payment"],
+      "assessment_merchants": [],
+      "insurance_merchants": ["Coastal Home Insurance"],
+      "utility_merchants": ["Coastal Power & Light"],
+      "repair_merchants": [],
+      "tax_merchants": [],
+
+      "rental_income_merchants": ["Tenant Direct"],
+      "potential_monthly_rental": 2200,
+      "potential_monthly_rental_full": 4500,
+      "potential_rental_notes": "Full STR potential $4,500/mo but owner-occupied part of the year. Realistic: $2,200/mo blended.",
+
+      "notes": [
+        "Monthly HOA ~$700 via CondoPay",
+        "Replace these notes with anything Claude Code should know about the property"
+      ]
+    },
+
+    "river_house": {
+      "name": "River House",
+      "address": "Floating Home, River City",
+      "value": 400000,
+      "loan_balance": 0,
+      "purchase_price": 220000,
+      "purchase_date": null,
+      "color": "#2e8b6e",
+
+      "mortgage_merchants": [],
+      "hoa_merchants": [],
+      "assessment_merchants": [],
+      "insurance_merchants": ["Shield Insurance"],
+      "utility_merchants": ["Metro Gas", "Valley Electric"],
+      "repair_merchants": ["Ace Hardware"],
+      "tax_merchants": ["County Tax"],
+      "moorage_merchants": ["Check #"],
+
+      "rental_income_merchants": ["Acme Property Mgmt", "Airbnb"],
+      "potential_monthly_rental": 3000,
+
+      "manual_income": [
+        {
+          "merchant": "River House 2025 Rent (off-platform)",
+          "date": "2025-07-01",
+          "amount_cents": 600000,
+          "category": "Rental Income",
+          "notes": "Example: rent that landed in an account your aggregator doesn't sync. Seeded as a manual transaction on the synthetic Manual / Off-Monarch account."
+        }
+      ],
+
+      "notes": [
+        "Floating home — moorage fee paid by check (see the category-gated Check # rule)",
+        "No mortgage — fully paid off"
+      ]
+    }
+  },
+
+  "exclusions": {
+    "_description": "Merchants that should NOT be assigned to any property (personal insurance, etc.)",
+    "auto_insurance": ["Geico"],
+    "boat_insurance": ["Progressive"],
+    "life_insurance": ["Acme Life"]
+  },
+
+  "merchant_rules": {
+    "_description": "Rules for ambiguous merchant matching. require_tx_category gates a broad pattern (like 'Check #') on the transaction's category so it only matches the intended payments.",
+    "CondoPay": { "property": "coastal_condo", "category": "hoa", "notes": "Always the condo HOA" },
+    "Lender A": { "property": "coastal_condo", "category": "mortgage", "notes": "Coastal Condo mortgage" },
+    "Coastal Power": { "property": "coastal_condo", "category": "utilities", "notes": "Coastal Condo electricity" },
+    "Shield Insurance": { "property": "river_house", "category": "insurance", "notes": "River House home insurance" },
+    "Check #": { "property": "river_house", "category": "moorage", "notes": "Floating-home moorage paid by check", "require_tx_category": "Rent" },
+    "County Tax": { "property": "river_house", "category": "property_tax", "notes": "River House property tax" },
+    "Metro Gas": { "property": "river_house", "category": "utilities", "notes": "River House gas" },
+    "Valley Electric": { "property": "river_house", "category": "utilities", "notes": "River House electricity" }
+  },
+
+  "capital_gains": {
+    "_description": "For property sale tax impact estimation",
+    "coastal_condo": { "purchase_price": 500000, "current_value": 500000, "estimated_gain": 0 },
+    "river_house": { "purchase_price": 220000, "current_value": 400000, "estimated_gain": 180000 }
+  }
+}
