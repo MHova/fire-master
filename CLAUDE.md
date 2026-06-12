@@ -118,7 +118,7 @@ Things that will cause bugs if you don't know them.
 - Seed scripts upsert (update existing, don't duplicate).
 
 **Frontend:**
-- Dark theme: #0a0a0f primary, #00d4aa green, #ff4d6a red, #4d8eff blue
+- Theme: warm-cream light UI (#f0ebe0 bg) with dark sidebar; accents `--green` #2e8b6e family — CSS vars in `index.css :root`
 - Native fetch wrapper (no axios).
 - Advisor bubble disabled in Layout.tsx.
 - Workflow: enter enrichment + config in the frontend → backend stores → Claude Code queries APIs for analysis.
