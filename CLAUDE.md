@@ -10,7 +10,7 @@ If a `CLAUDE.local.md` exists here, read it too — it carries the owner's machi
 
 | Module | Entry point |
 |--------|-------------|
-| Monarch sync + Net Worth | `app/services/monarch_sync.py` |
+| Monarch sync + Net Worth | `app/ingestion/monarch_sync.py` |
 | Spending Analyzer | `app/engines/spending.py` |
 | AI Advisor (de-prioritized — Claude Code is the preferred analysis tool) | `app/advisor/manager.py` |
 | Asset Hub + Enrichment | `app/engines/asset_hub.py` |
@@ -70,7 +70,8 @@ uv run celery -A app.tasks.celery_app beat --loglevel=info
 npm install && npm run dev       # Dev server :5173
 
 # First-run seeds (from backend/)
-uv run python ../scripts/seed_config.py       # starter FIRE config persona
+uv run python ../scripts/seed_demo.py         # full demo persona: accounts, history, income, events, config (refuses on Monarch DBs; --remove to clear)
+uv run python ../scripts/seed_config.py       # starter FIRE config persona (blank-slate alternative to the demo)
 uv run python ../scripts/seed_scenarios.py    # example scenarios
 uv run python ../scripts/seed_properties.py   # properties + rules from config/properties.json
 uv run python ../scripts/monarch_login.py     # Monarch auth (one-time)
@@ -87,6 +88,7 @@ Things that will cause bugs if you don't know them.
 - All monetary values: BIGINT cents in PostgreSQL
 - Use `displayBalance` (not `currentBalance`) for account balances
 - Account enrichment fields survive Monarch sync (not overwritten)
+- Demo-seed rows (`scripts/seed_demo.py`) are `source=MANUAL`, `external_id=NULL`, marked `custom_data.demo_seed=true` — invisible to sync/reconcile; `--remove` deletes exactly those
 - Uses `monarchmoneycommunity` fork (original `monarchmoney` unmaintained, domain rebrand broke it)
 - Uses `bcrypt` directly (not `passlib` — incompatible with bcrypt 5.x)
 - Celery worker needs `-I app.tasks.sync_tasks` for task autodiscovery

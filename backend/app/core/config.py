@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://firemaster:firemaster@localhost:5432/firemaster"
     DATABASE_URL_SYNC: str = "postgresql://firemaster:firemaster@localhost:5432/firemaster"
+    DATABASE_ECHO: bool = False  # log every SQL statement (debugging only)
 
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
