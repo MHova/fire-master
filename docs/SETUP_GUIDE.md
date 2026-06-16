@@ -59,9 +59,9 @@ This single script:
 4. starts the **backend** (FastAPI on :8000), the **Celery worker** (background sync jobs),
    and the **frontend** (Vite on :5173).
 
-First run also installs Python deps (`uv sync` happens implicitly via `uv run`) and you should
-run `npm install` in `frontend/` if the frontend fails to start. Leave this terminal running;
-`Ctrl+C` stops all services.
+First run also installs Python deps (`uv sync` happens implicitly via `uv run`) and frontend
+deps (`npm install` runs automatically when `node_modules` is missing). Leave this terminal
+running; `Ctrl+C` stops all services.
 
 Sanity checks: `http://localhost:8000/api/health` returns ok, `http://localhost:5173` shows
 the login screen.

@@ -120,7 +120,7 @@ engine, tax math, scenario merging, and property classification.
 ## Why this exists
 
 I spent twenty-five years building technology for movies and games — the kind of career you
-don't plan an early exit from, until a layoff plans it for you. At 52, with a household that
+don't plan an early exit from, until a layoff plans it for you. At 53, with a household that
 runs on real estate as much as index funds, every retirement calculator I tried gave me a
 polite shrug: none of them could model a severance runway, a 72(t) bridge, a rental that pays
 for itself, or the one question that actually mattered — *which year does cash go negative,
