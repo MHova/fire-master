@@ -491,16 +491,26 @@ export default function RunwayPage() {
   const [incomeDraft, setIncomeDraft] = useState<string>("");
   const [burnDraft, setBurnDraft] = useState<string>("");
 
-  // Seed the burn override once from the configured target spending
-  const burnSeeded = useRef(false);
+  // Seed income/burn once from custom_assumptions.runway (if set),
+  // falling back to target_annual_spending for burn.
+  const seeded = useRef(false);
   useEffect(() => {
-    const target = fireConfig?.target_annual_spending;
-    if (!burnSeeded.current && target != null && target > 0) {
-      burnSeeded.current = true;
-      const monthly = Math.round(target / 12 / 100); // cents/yr → dollars/mo
-      setBurnDraft(String(monthly));
-      setBurnOverride(monthly);
+    if (seeded.current || !fireConfig) return;
+    const runway = (fireConfig.custom_assumptions?.runway ?? {}) as Record<string, number>;
+    const seedIncome = runway.monthly_income;
+    const seedBurn = runway.monthly_burn
+      ?? (fireConfig.target_annual_spending
+        ? Math.round(fireConfig.target_annual_spending / 12 / 100)
+        : undefined);
+    if (seedIncome != null && seedIncome > 0) {
+      setIncomeDraft(String(seedIncome));
+      setIncomeOverride(seedIncome);
     }
+    if (seedBurn != null && seedBurn > 0) {
+      setBurnDraft(String(seedBurn));
+      setBurnOverride(seedBurn);
+    }
+    seeded.current = true;
   }, [fireConfig]);
 
   const [showAddModal, setShowAddModal] = useState(false);
