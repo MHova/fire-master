@@ -26,8 +26,8 @@ export default function LoginPage() {
         onSubmit={handleSubmit}
         className="w-80 p-8 bg-[var(--bg-card)] border border-[var(--border)] rounded-lg"
       >
-        <h1 className="text-xl font-semibold mb-6 text-center text-[var(--text-primary)]">
-          FIRE Master
+        <h1 className="mb-6 text-center" style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: "24px", fontWeight: 400, letterSpacing: "-0.3px" }}>
+          <span className="text-[var(--text-primary)]">FIRE</span><span className="text-[var(--green)]">Master</span>
         </h1>
         {error && (
           <div className="mb-4 p-2 text-sm bg-[rgba(255,77,106,0.1)] text-[var(--red)] border border-[var(--red)] rounded">

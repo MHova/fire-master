@@ -11,9 +11,6 @@ const NAV_ITEMS = [
   { label: "Transactions", path: "/transactions", active: true },
   { label: "Properties", path: "/properties", active: true },
   { label: "Retirement", path: "/retirement", active: true },
-  { label: "Tax Planning", path: "/tax", active: true },
-  { label: "Trading", path: "/trading", active: false },
-  { label: "Settings", path: "/settings", active: false },
 ];
 
 export default function Layout({ children }: { children: ReactNode }) {
@@ -24,14 +21,14 @@ export default function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen w-full">
       {/* Sidebar */}
-      <nav className="w-56 shrink-0 border-r border-[var(--border)] bg-[var(--bg-secondary)] flex flex-col">
-        <div className="px-5 py-5 border-b border-[var(--border)]">
-          <h1 className="text-lg font-semibold tracking-tight text-[var(--text-primary)] flex items-center gap-2">
-            <img src="/favicon.svg" alt="" className="w-6 h-6" />
-            FIRE Master
+      <nav className="w-56 shrink-0 border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] flex flex-col">
+        <div className="px-5 py-5 border-b border-[var(--sidebar-border)]">
+          <h1 className="flex items-center gap-2" style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: "20px", fontWeight: 400, letterSpacing: "-0.3px" }}>
+            <img src="/favicon.svg" alt="" className="w-6 h-6 rounded" />
+            <span><span className="text-[var(--bg-primary)]">FIRE</span><span className="text-[var(--green)]">Master</span></span>
           </h1>
         </div>
-        <ul className="flex-1 py-2">
+        <ul className="flex-1 py-2 overflow-y-auto">
           {NAV_ITEMS.map((item) => {
             const isCurrent = item.path === "/" ? currentPath === "/" : currentPath.startsWith(item.path);
             return (
@@ -51,15 +48,15 @@ export default function Layout({ children }: { children: ReactNode }) {
               </li>
             );
           })}
+          <li className="mt-2 pt-2 border-t border-[var(--sidebar-border)]">
+            <button
+              onClick={logout}
+              className="block w-full text-left px-5 py-2.5 text-sm text-[var(--text-secondary)] hover:text-[var(--red)] transition-colors"
+            >
+              Sign Out
+            </button>
+          </li>
         </ul>
-        <div className="px-5 py-4 border-t border-[var(--border)]">
-          <button
-            onClick={logout}
-            className="text-sm text-[var(--text-secondary)] hover:text-[var(--red)] transition-colors"
-          >
-            Sign Out
-          </button>
-        </div>
       </nav>
 
       {/* Main content */}

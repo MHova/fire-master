@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* ═══════════════════════════════════════════════════════════
-   FIRE Master — Financial Times / Solarized Light Theme
+   FIREMaster — Financial Times / Solarized Light Theme
    Warm cream base, rich ink text, institutional precision
    ═══════════════════════════════════════════════════════════ */
 
@@ -14,6 +14,10 @@
   --border: #d6ccb8;
   --border-bright: #c4b9a4;
   --border-subtle: #e4ddd0;
+
+  /* ── Sidebar — matches firemaster.io navy ── */
+  --sidebar-bg: #151e3d;
+  --sidebar-border: #1e2a50;
 
   /* ── Typography — rich ink on warm paper ── */
   --text-primary: #1a1a1e;
@@ -169,10 +173,10 @@ input[type="number"] {
   -moz-appearance: textfield;
 }
 
-/* ── Sidebar — warm dark contrast ── */
+/* ── Sidebar — matches firemaster.io navy ── */
 nav {
-  background: #2a2a32 !important;
-  border-color: #3a3a44 !important;
+  background: var(--sidebar-bg) !important;
+  border-color: var(--sidebar-border) !important;
 }
 
 nav h1 {
@@ -206,13 +210,12 @@ nav button:hover {
   color: #ff6b84 !important;
 }
 
-/* Sidebar bottom border */
 nav [class*="border-t"] {
-  border-color: #3a3a44 !important;
+  border-color: var(--sidebar-border) !important;
 }
 
 nav [class*="border-b"] {
-  border-color: #3a3a44 !important;
+  border-color: var(--sidebar-border) !important;
 }
 
 /* ── Top header bar ── */

@@ -274,7 +274,7 @@ export default function AdvisorPanel() {
                     </svg>
                   </div>
                   <h3 className="text-base font-semibold text-[var(--text-primary)] mb-2">
-                    FIRE Master Advisor
+                    FIREMaster Advisor
                   </h3>
                   <p className="text-sm text-[var(--text-secondary)] mb-6">
                     Ask me anything about your finances. I have access to your real data — net worth, spending, savings rate, transactions.
