@@ -467,7 +467,6 @@ class SpendingEngine:
             CategoryMapping.is_transfer == False,
             CategoryMapping.parent_category.notin_(self.TRACKER_EXCLUDED_PARENTS),
             CategoryMapping.normalized_category.notin_(self.TRACKER_EXCLUDED_CATEGORIES),
-            Transaction.amount < 0,
             Transaction.hide_from_reports == False,
             # Property-assigned transactions live in the Property P&L module, not the
             # Tracker. Runway/FIRE burn (which don't use this filter) still count them.
