@@ -292,6 +292,60 @@ normal, well-trodden Windows setup, not a research project.
 
 ---
 
+## Part 4 — Where to develop and test (macOS vs. Windows)
+
+**~90% of this plan can be developed and fully tested on macOS.** Windows then shrinks to a
+short "does it actually launch" acceptance check. The reason: **containers run Linux no
+matter what the host OS is** — a stack that comes up with `docker compose up` on the Mac
+runs the *same Linux containers* on Windows. The host only supplies Docker.
+
+| Change | Develop + functionally test on macOS? | Needs a real Windows pass? |
+|---|---|---|
+| 1 — Networking fix | ✅ 100% | trivial re-verify |
+| 2 — Frontend container | ✅ 100% | just confirm `:5173` loads |
+| 3 — Auto-migrations | ✅ 100% | none |
+| 4 — Cross-platform setup | ✅ build on Mac | ⚠️ **yes** — this is the bit that *used* to need bash, so prove the no-bash path on Windows |
+| 5 — Retire `start.sh` (user path) | ✅ 100% | confirm `docker compose up` is all that's needed |
+| 6 — Multi-arch images | build via CI | ⚠️ **architecture matters** (see below) |
+| 7 — Docs | write anywhere | ✅ verify by *following* `docs/WINDOWS.md` on Windows |
+
+So **Changes 1–5 — the entire functional core — get developed and fully tested on the Mac.**
+Windows becomes acceptance testing, not development.
+
+### The two things that genuinely need Windows / other hardware
+
+1. **Change 4 (setup).** The old path failed *because* it was bash. The new path runs Python
+   *inside a Linux container*, so it behaves the same — but since "works without bash on
+   Windows" is the literal goal, verify it there once.
+
+2. **Change 6 (multi-arch) — the real catch, and it's about the test hardware:**
+   - Apple Silicon Mac = **arm64**.
+   - Windows ARM64 VM = **arm64**.
+   - Most real Windows users = **amd64** (Intel/AMD).
+
+   **Both available test machines are arm64** — so neither one ever exercises the amd64 image
+   a typical user will download. This is exactly the case Mac-then-Windows testing *won't*
+   catch on this setup. Mitigation: CI (GitHub Actions) builds **both** arches, and test
+   **amd64** somewhere — a real Intel machine, an amd64 cloud runner, or QEMU emulation
+   (`docker run --platform linux/amd64`, slow but works).
+
+### One Windows-only gotcha to pre-empt: line endings
+
+The `LF→CRLF` warning Git shows on Windows matters for **one specific thing**: the entrypoint
+shell script added in Change 3 (migrations-on-boot). If it ever gets saved with Windows CRLF
+endings, the Linux container chokes with a cryptic `bad interpreter` error. Developing on Mac
+(LF) avoids it — but add a `.gitattributes` with `*.sh text eol=lf` as a guard so a future
+Windows edit can't break the image. Cheap insurance.
+
+### Recommended rhythm
+
+1. **On the Mac:** Changes 1–5 — iterate fast, fully functional there.
+2. **Add CI:** Change 6 multi-arch build (the GitHub Actions extension is for exactly this).
+3. **Final Windows pass:** follow the new `docs/WINDOWS.md` on a clean machine — ideally an
+   **amd64** one — to prove the gauntlet collapsed.
+
+---
+
 ## Suggested order of work
 
 ```
