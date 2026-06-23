@@ -1,0 +1,92 @@
+"""Demo-persona data lifecycle helpers — the single source of truth for detecting
+and clearing the built-in demo persona.
+
+Every row the demo seeder (scripts/seed_demo.py) creates is marked
+``custom_data.demo_seed = true`` and ``source = MANUAL``, so it is invisible to
+Monarch sync/reconcile and can be removed without ever touching real data. Both
+the manual ``seed_demo.py --remove`` and the automatic "going live" clear (run by
+the Monarch sync) go through here, so there is exactly one removal implementation.
+"""
+
+from __future__ import annotations
+
+from sqlalchemy import delete, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.engines.net_worth import NetWorthEngine
+from app.models.account import Account
+from app.models.balance_snapshot import BalanceSnapshot
+from app.models.cashflow_event import CashflowEvent
+from app.models.enums import DataSource
+from app.models.income_source import IncomeSource
+from app.models.net_worth_snapshot import NetWorthSnapshot
+
+
+def _demo_filter(model):
+    """SQLAlchemy predicate matching only demo-seeded rows of ``model``."""
+    return model.custom_data["demo_seed"].as_boolean() == True  # noqa: E712
+
+
+async def has_demo_rows(db: AsyncSession) -> bool:
+    """True if any demo-seeded account remains."""
+    row = await db.execute(select(Account).where(_demo_filter(Account)).limit(1))
+    return row.scalar_one_or_none() is not None
+
+
+async def has_real_accounts(db: AsyncSession) -> bool:
+    """True if any real (Monarch-synced) account exists."""
+    row = await db.execute(
+        select(Account).where(Account.source == DataSource.MONARCH).limit(1)
+    )
+    return row.scalar_one_or_none() is not None
+
+
+async def clear_demo_data(db: AsyncSession) -> dict:
+    """Delete every demo-seeded row (accounts + their balance history, income
+    sources, cashflow events) and rebuild net-worth history from whatever real
+    data remains.
+
+    Marker-scoped via ``_demo_filter`` — it can NEVER touch real (Monarch) rows.
+    Does not commit; the caller owns the transaction. Returns a count summary.
+
+    The FIRE config is intentionally left untouched: it is the user's *plan*, not
+    data, and only they can replace it (on the /config page).
+    """
+    demo_accounts = (
+        await db.execute(select(Account).where(_demo_filter(Account)))
+    ).scalars().all()
+    demo_ids = [a.id for a in demo_accounts]
+    if demo_ids:
+        await db.execute(
+            delete(BalanceSnapshot).where(BalanceSnapshot.account_id.in_(demo_ids))
+        )
+    for acct in demo_accounts:
+        await db.delete(acct)
+
+    removed_income = 0
+    for src in (
+        await db.execute(select(IncomeSource).where(_demo_filter(IncomeSource)))
+    ).scalars().all():
+        await db.delete(src)
+        removed_income += 1
+
+    removed_events = 0
+    for ev in (
+        await db.execute(select(CashflowEvent).where(_demo_filter(CashflowEvent)))
+    ).scalars().all():
+        await db.delete(ev)
+        removed_events += 1
+
+    await db.flush()
+
+    # Rebuild aggregate net-worth history from whatever balance data is left.
+    await db.execute(delete(NetWorthSnapshot))
+    remaining = (await db.execute(select(BalanceSnapshot).limit(1))).scalar_one_or_none()
+    nw_snapshots = await NetWorthEngine(db).backfill_snapshots() if remaining is not None else 0
+
+    return {
+        "accounts": len(demo_accounts),
+        "income_sources": removed_income,
+        "cashflow_events": removed_events,
+        "net_worth_snapshots": nw_snapshots,
+    }

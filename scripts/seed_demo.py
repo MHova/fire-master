@@ -479,34 +479,15 @@ async def seed_if_empty() -> None:
 
 
 async def remove() -> None:
+    from app.ingestion.demo_data import clear_demo_data
+
     async with async_session_factory() as session:
-        demo_accounts = await _demo_rows(session, Account)
-        demo_ids = [a.id for a in demo_accounts]
-        if demo_ids:
-            await session.execute(
-                delete(BalanceSnapshot).where(BalanceSnapshot.account_id.in_(demo_ids))
-            )
-        for acct in demo_accounts:
-            await session.delete(acct)
-        print(f"  Accounts removed: {len(demo_accounts)} (and their balance history)")
-
-        removed_src = removed_ev = 0
-        for src in await _demo_rows(session, IncomeSource):
-            await session.delete(src)
-            removed_src += 1
-        for ev in await _demo_rows(session, CashflowEvent):
-            await session.delete(ev)
-            removed_ev += 1
-        print(f"  Income sources removed: {removed_src}")
-        print(f"  Cashflow events removed: {removed_ev}")
-        await session.flush()
-
-        # Rebuild aggregate net worth history from whatever balance data remains
-        await session.execute(delete(NetWorthSnapshot))
-        result = await session.execute(select(BalanceSnapshot).limit(1))
-        if result.scalar_one_or_none() is not None:
-            nw_count = await NetWorthEngine(session).backfill_snapshots()
-            print(f"  Net worth snapshots: {nw_count} recomputed from remaining data")
+        summary = await clear_demo_data(session)
+        print(f"  Accounts removed: {summary['accounts']} (and their balance history)")
+        print(f"  Income sources removed: {summary['income_sources']}")
+        print(f"  Cashflow events removed: {summary['cashflow_events']}")
+        if summary["net_worth_snapshots"]:
+            print(f"  Net worth snapshots: {summary['net_worth_snapshots']} recomputed from remaining data")
         else:
             print("  Net worth snapshots: cleared (no balance history left)")
 

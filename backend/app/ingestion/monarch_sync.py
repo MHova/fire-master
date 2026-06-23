@@ -1,6 +1,7 @@
 """Monarch Money sync orchestrator — upserts accounts, transactions, and balance snapshots."""
 
 import logging
+import os
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 
@@ -389,6 +390,25 @@ class MonarchSyncService:
         except Exception as e:
             logger.error("Property reclassification failed: %s", e)
             result.errors.append(f"Property reclassification: {e}")
+
+        # Going live: once a sync has brought in real (Monarch) accounts, auto-clear the
+        # demo persona so the user sees only their own data. Marker-scoped — it can only
+        # ever delete demo rows, never real ones. Opt out with AUTO_CLEAR_DEMO=false.
+        # Isolated in its own try/except so a failure never aborts the sync.
+        try:
+            if os.environ.get("AUTO_CLEAR_DEMO", "true").strip().lower() != "false":
+                from app.ingestion.demo_data import (
+                    clear_demo_data,
+                    has_demo_rows,
+                    has_real_accounts,
+                )
+
+                if await has_real_accounts(self.db) and await has_demo_rows(self.db):
+                    summary = await clear_demo_data(self.db)
+                    logger.info("Demo persona auto-cleared after going live: %s", summary)
+        except Exception as e:
+            logger.error("Demo auto-clear failed: %s", e)
+            result.errors.append(f"Demo auto-clear: {e}")
 
         await self.db.flush()
         logger.info(

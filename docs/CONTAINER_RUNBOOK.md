@@ -182,6 +182,7 @@ taken — no file edits, just set the var.)
 | `ModuleNotFoundError` running `docker compose … backend python …` | Bare `python` uses the system interpreter, not the uv venv | prefix with `uv run`: `… backend uv run python …` |
 | Old Python package after changing deps | The anonymous `.venv` volume persists across rebuilds and can hold stale deps | rebuild, then `docker compose up --build --renew-anon-volumes` (renews the anon `.venv` only; the named data volume is kept) |
 | Port already in use on `up` | Your native stack or sister project is running | remap with `BACKEND_HOST_PORT=…` etc., or stop the native app layer |
+| Demo data vanished after connecting Monarch | **Expected** — the first real sync auto-clears the demo persona (marker-scoped: only demo rows, real data untouched) | keep it with `AUTO_CLEAR_DEMO=false`; the FIRE config stays for you to rebuild on /config |
 | Edited a `.sh` file on Windows, container won't start | CRLF line endings | `.gitattributes` forces `*.sh` to LF; re-checkout the file |
 
 ### Useful inspection commands

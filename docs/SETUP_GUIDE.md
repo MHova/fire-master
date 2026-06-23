@@ -103,8 +103,9 @@ what you just saw).
 ## 6. Go live: connect Monarch
 
 When you're ready for your real data, follow [MONARCH_SETUP.md](MONARCH_SETUP.md):
-authenticate once, hit **Sync Now**, enrich your accounts with FIRE roles, then remove the
-demo rows. Property owners: also see the property import section there and
+authenticate once, hit **Sync Now**, and enrich your accounts with FIRE roles. Your first sync
+**auto-clears the demo persona** (only the FIRE config stays, for you to rebuild on the Config
+page). Property owners: also see the property import section there and
 [PROPERTY_MODULE.md](PROPERTY_MODULE.md).
 
 ## 7. Make the config yours

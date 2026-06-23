@@ -9,8 +9,8 @@ FIREMaster only ever sees read-only financial data on your own machine.
 
 You don't need Monarch to *evaluate* FIREMaster — run `scripts/seed_demo.py` and explore the
 demo persona first. Connect Monarch (~$8/month, free trial available) when you're ready to
-run on your real data. Demo rows are manual-source and coexist safely with a real sync;
-remove them afterwards with `seed_demo.py --remove`.
+run on your real data. Demo rows are manual-source and coexist safely with a real sync — and
+your **first real sync clears them automatically** (set `AUTO_CLEAR_DEMO=false` to keep them).
 
 ## 1. One-time authentication
 
@@ -99,11 +99,16 @@ here. Details and gotchas: [PROPERTY_MODULE.md](PROPERTY_MODULE.md).
 
 ## 6. Going fully live
 
-Once your real data looks right:
+**Nothing to clean up by hand.** Your first real Monarch sync (step 2) **auto-removes the demo
+persona** — accounts, balance history, income sources, and cashflow events. It is marker-scoped,
+so it only ever deletes demo rows; your synced data is never touched.
+
+The one thing that stays is the **FIRE config** — that's your retirement *plan*, and only you
+can write it. Rebuild it on the **Config** page (projections reflect the demo persona's plan
+until you replace it).
 
 ```bash
-docker compose exec backend uv run python ../scripts/seed_demo.py --remove   # clear the demo persona's rows
+# Optional escape hatches:
+#   keep the demo alongside real data →  AUTO_CLEAR_DEMO=false docker compose up
+#   clear the demo manually any time  →  docker compose exec backend uv run python ../scripts/seed_demo.py --remove
 ```
-
-Then rebuild your FIRE config on the **Config** page with your own plan (the demo config
-stays until you replace it — the removal script reminds you).

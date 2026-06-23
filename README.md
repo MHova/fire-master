@@ -77,7 +77,8 @@ The demo seeds automatically on a fresh database — to start **blank** instead,
 docker compose exec backend uv run python ../scripts/seed_scenarios.py   # example what-if scenarios
 ```
 
-The demo is safe to explore, re-seed, or remove (`seed_demo.py --remove`) at any time.
+The demo is safe to explore or re-seed, and **clears itself on your first real Monarch sync**
+(or `seed_demo.py --remove` any time).
 
 ### Going live with your data
 
@@ -85,9 +86,10 @@ The demo is safe to explore, re-seed, or remove (`seed_demo.py --remove`) at any
 docker compose exec backend uv run python ../scripts/monarch_login.py    # one-time Monarch auth (email/password/MFA)
 ```
 
-Then hit **Sync Now** on the Dashboard. Full walkthrough — including account enrichment,
-property rules, and your first FIRE config — in [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md)
-and [docs/MONARCH_SETUP.md](docs/MONARCH_SETUP.md).
+Then hit **Sync Now** on the Dashboard — your first sync **auto-clears the demo persona**,
+leaving just your data (rebuild your plan on the Config page). Full walkthrough — including
+account enrichment, property rules, and your first FIRE config — in
+[docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md) and [docs/MONARCH_SETUP.md](docs/MONARCH_SETUP.md).
 
 ### Contributor / native dev (optional)
 
