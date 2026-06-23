@@ -15,11 +15,11 @@ remove them afterwards with `seed_demo.py --remove`.
 ## 1. One-time authentication
 
 ```bash
-cd backend
-uv run python ../scripts/monarch_login.py
+docker compose exec backend uv run python ../scripts/monarch_login.py
 ```
 
-Enter your Monarch email, password, and MFA code if prompted. The session token is saved to
+Enter your Monarch email, password, and MFA code if prompted. (`docker compose exec` gives the
+interactive terminal the MFA prompt needs; run it against the already-running stack.) The session token is saved to
 `backend/.monarch_session` (gitignored — treat it like a password). Credentials themselves
 are never stored.
 
@@ -88,7 +88,7 @@ If you track rental/property P&L:
 ```bash
 cp config/properties.example.json config/properties.json
 # edit: your properties, merchant rules, exclusions
-cd backend && uv run python ../scripts/seed_properties.py
+docker compose exec backend uv run python ../scripts/seed_properties.py
 ```
 
 Transactions auto-classify to properties by merchant rules; fix one-offs inline on the
@@ -102,8 +102,7 @@ here. Details and gotchas: [PROPERTY_MODULE.md](PROPERTY_MODULE.md).
 Once your real data looks right:
 
 ```bash
-cd backend
-uv run python ../scripts/seed_demo.py --remove   # clear the demo persona's rows
+docker compose exec backend uv run python ../scripts/seed_demo.py --remove   # clear the demo persona's rows
 ```
 
 Then rebuild your FIRE config on the **Config** page with your own plan (the demo config

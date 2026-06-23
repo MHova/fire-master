@@ -1,5 +1,11 @@
 # Containerization Plan — making FIREMaster easy to install
 
+> **Status — Changes 1–5 implemented** (on branch `containerize`, not yet merged). The Docker
+> path (`docker compose up`) is live and tested; operations, troubleshooting, and rewind steps
+> are in [docs/CONTAINER_RUNBOOK.md](docs/CONTAINER_RUNBOOK.md). Still open: Change 6 (multi-arch
+> amd64 images) and Change 7's final **Windows acceptance test** on real/amd64 hardware. This
+> document is retained as the original plan and rationale.
+
 > **Why this document exists.** FIREMaster was built on macOS and assumes a Unix
 > toolchain. Installing it on a clean Windows machine (this test) currently requires
 > **six tools and a Linux shell** before the app will run. This document explains why,

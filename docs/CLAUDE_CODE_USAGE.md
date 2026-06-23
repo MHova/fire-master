@@ -13,7 +13,7 @@ argument is in [ARCHITECTURE.md](../ARCHITECTURE.md).
 
 ## Setup (one minute)
 
-1. Start the stack (`./scripts/start.sh`) and install
+1. Start the stack (`docker compose up`) and install
    [Claude Code](https://docs.claude.com/en/docs/claude-code).
 2. Open a terminal **in this repo** and run `claude`. The checked-in [CLAUDE.md](../CLAUDE.md)
    already teaches it the module map, the API surface, and the data-layer gotchas (cents,

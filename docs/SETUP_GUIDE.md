@@ -1,80 +1,76 @@
 # Setup Guide
 
-Complete walkthrough from clone to a living dashboard. Expect **15–30 minutes** end to end,
-most of it dependency installs. The short version is in the [README](../README.md#quick-start);
-this guide adds detail, expected output, and the post-install configuration steps.
+Complete walkthrough from clone to a living dashboard. Expect **10–20 minutes** end to end,
+most of it the one-time Docker image build. The short version is in the
+[README](../README.md#quick-start); this guide adds detail, expected output, and the
+post-install configuration steps.
 
 ## 1. Prerequisites
 
 | Tool | Why | Check |
 |---|---|---|
-| Docker Desktop | PostgreSQL 16 + Redis containers | `docker info` |
-| uv | Python 3.12 + dependency management (no manual venvs) | `uv --version` |
-| Node 18+ | React frontend dev server | `node --version` |
+| Docker Desktop | runs the **whole** stack in containers — Postgres 16, Redis, Python 3.12, Node | `docker compose version` |
 | git | clone + updates | `git --version` |
 
-- **macOS / Linux**: everything works as-is.
-- **Windows**: use **WSL2** (recommended — install everything inside the Linux environment),
-  or Git Bash if you must stay native. `setup.sh` / `start.sh` are bash scripts and will not
-  run in PowerShell. Native-Windows Python also needs a prebuilt `bcrypt` wheel — use 64-bit
-  Python 3.12 and a current uv so you never compile it.
+That's it — **no Python, uv, Node, or shell tooling on your machine.** They all live inside
+the containers.
 
-Install uv if you don't have it:
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
+- **macOS / Linux**: install Docker Desktop and you're done.
+- **Windows**: install Docker Desktop — its installer sets up WSL2 for you (**one reboot**),
+  then everything below runs the same as on macOS. You do **not** install or manage an Ubuntu
+  distro, and you never touch bash.
+- **Prefer to develop natively** (run the backend/frontend on the host for fast hot-reload)?
+  That path needs `uv` + Node 18+ and a bash shell — see the **Contributor / native dev**
+  section in the [README](../README.md#contributor--native-dev-optional). This guide uses the
+  Docker path throughout.
 
 ## 2. Clone and configure
 
 ```bash
 git clone <this-repo> firemaster && cd firemaster
-./scripts/setup.sh
+docker compose run --rm backend uv run python -m app.setup
 ```
 
-`setup.sh` creates `backend/.env` from `.env.example`, generates a random JWT secret, and
-asks you to choose an **admin password** (stored as a bcrypt hash — the plaintext is never
-written anywhere). Username is `admin`.
+`app.setup` creates `backend/.env`: it generates a random JWT secret and asks you to choose an
+**admin password** (stored as a bcrypt hash — the plaintext is never written anywhere).
+Username is `admin`. It runs entirely inside the container (Python + bcrypt), so there are no
+host dependencies and it works identically on Windows.
 
-Re-running `setup.sh` later **overwrites `.env`** (it warns first). To change just the
-password afterwards:
-
-```bash
-cd backend && uv run python -c "from app.core.auth import hash_password; print(hash_password('NEW-PASSWORD'))"
-# paste the output into AUTH_PASSWORD_HASH in backend/.env, then restart the stack
-```
+- **Non-interactive** (CI / scripted): set the password via an env var instead of the prompt:
+  `docker compose run --rm -e FIREMASTER_ADMIN_PASSWORD=yourpass backend uv run python -m app.setup`
+- **Change it later**: re-run with `--force` (it refuses to overwrite otherwise):
+  `docker compose run --rm backend uv run python -m app.setup --force`
 
 ## 3. Start the stack
 
 ```bash
-./scripts/start.sh
+docker compose up
 ```
 
-This single script:
+First run **builds the images** (a few minutes) and pulls Postgres/Redis. Then, every start:
 
-1. clears anything stale on ports 8000/5173,
-2. starts **postgres** and **redis** via Docker Compose (first run pulls images),
-3. applies database migrations (`alembic upgrade head` — on a fresh database this builds the
-   full schema),
-4. starts the **backend** (FastAPI on :8000), the **Celery worker** (background sync jobs),
-   and the **frontend** (Vite on :5173).
+1. **postgres** and **redis** come up and pass health checks,
+2. a one-shot **migrate** service runs `alembic upgrade head` — on a fresh database this builds
+   the full schema — then **exits** (a `migrate ... Exited (0)` line in the output is normal),
+3. the **backend** (FastAPI :8000), **Celery worker** + **beat** (background sync jobs), and the
+   **frontend** (Vite :5173) start.
 
-First run also installs Python deps (`uv sync` happens implicitly via `uv run`) and frontend
-deps (`npm install` runs automatically when `node_modules` is missing). Leave this terminal
-running; `Ctrl+C` stops all services.
+Leave this terminal running; `Ctrl+C` stops everything. To run detached instead, use
+`docker compose up -d`.
 
-Sanity checks: `http://localhost:8000/api/health` returns ok, `http://localhost:5173` shows
-the login screen.
+Sanity checks: `http://localhost:8000/api/health` returns ok, `http://localhost:5173` shows the
+login screen. (If `:5432`/`:6379`/`:8000`/`:5173` are already taken, set e.g.
+`BACKEND_HOST_PORT=8001 FRONTEND_HOST_PORT=5174 docker compose up`.)
 
 ## 4. Seed data — demo first
 
-A fresh database renders empty pages. Seed the **demo persona** to see the app working at
-full depth before you connect anything real:
+A fresh database renders empty pages. Seed the **demo persona** to see the app working at full
+depth before you connect anything real. In a second terminal (leave `docker compose up`
+running):
 
 ```bash
-cd backend
-uv run python ../scripts/seed_demo.py
-uv run python ../scripts/seed_scenarios.py   # optional: example what-if scenarios
+docker compose exec backend uv run python ../scripts/seed_demo.py
+docker compose exec backend uv run python ../scripts/seed_scenarios.py   # optional: example what-if scenarios
 ```
 
 The demo persona is a 52-year-old just past a layoff: severance and unemployment running out,
@@ -88,12 +84,13 @@ Demo mechanics worth knowing:
 
 - **Safe**: it refuses to run against a database that already has Monarch-synced data.
 - **Idempotent**: re-running re-anchors all dates to today and updates in place.
-- **Removable**: `uv run python ../scripts/seed_demo.py --remove` deletes every demo row.
-  Demo rows are manual-source, so they coexist safely with a later real Monarch sync until
-  you do.
+- **Removable**: `docker compose exec backend uv run python ../scripts/seed_demo.py --remove`
+  deletes every demo row. Demo rows are manual-source, so they coexist safely with a later real
+  Monarch sync until you remove them.
 
 If you'd rather start blank (no demo), seed just a starter FIRE config so the Retirement page
-has something to project: `uv run python ../scripts/seed_config.py`.
+has something to project:
+`docker compose exec backend uv run python ../scripts/seed_config.py`.
 
 ## 5. Log in and tour
 
@@ -127,26 +124,29 @@ Everything the projections assume lives in one place: the **Config** page (base 
 
 ```bash
 git pull
-cd backend && uv sync && uv run alembic upgrade head
-cd ../frontend && npm install
-./scripts/start.sh
+docker compose up -d --build      # rebuilds images for any code/dep changes; migrate auto-applies
 ```
 
-Migrations are always safe to re-run. After pulling engine changes, note the Celery worker
-needs the restart (`start.sh` handles it).
+Migrations are always safe to re-run. If a pull changed Python/JS dependencies and a container
+errors about a missing package, refresh the cached dependency volumes:
+`docker compose up -d --build --renew-anon-volumes` (renews the anonymous `.venv` /
+`node_modules` volumes only — your **named data volume is kept**).
 
 ## 9. Troubleshooting
 
-Start with the [README's troubleshooting table](../README.md#troubleshooting). Additional
-detail:
+Start with the [README's troubleshooting table](../README.md#troubleshooting) and the
+[Container Runbook](CONTAINER_RUNBOOK.md). Additional detail:
 
-- **Login fails with correct password** — `AUTH_PASSWORD_HASH` in `backend/.env` must be a
-  bcrypt hash (starts with `$2b$`). Regenerate via the one-liner in step 2. Settings are
-  cached per-process: restart after editing `.env`.
-- **Frontend can't reach the backend** — the frontend targets `http://localhost:8000` by
-  default; override with `VITE_API_URL` (see `frontend/.env.example`) if you moved the API.
-- **Migrations fail on an existing database** — you likely have a database from an older
-  install. For a clean slate: `docker compose down -v` (DESTROYS local data) and re-run
-  `start.sh`.
-- **Celery logs show no tasks registered** — the worker must run with
-  `-I app.tasks.sync_tasks` (start.sh does this).
+- **Login fails with the correct password** — `AUTH_PASSWORD_HASH` in `backend/.env` must be a
+  bcrypt hash (starts with `$2`). Regenerate by re-running setup with `--force` (step 2). Note:
+  the app reads the *mounted* `backend/.env` directly — do not add `env_file:` to the backend
+  service in compose (Compose interpolates env_file values and would corrupt the `$` in the
+  hash). See the runbook.
+- **`migrate` container shows `Exited (0)`** — normal; it ran migrations and quit.
+- **Migrations fail on an existing database** — you likely have an older schema. For the demo /
+  a throwaway project you can start clean with `docker compose down -v` — **but `-v` DESTROYS
+  the data volume**, so never run it against a project holding real data.
+- **Celery logs show no tasks registered** — the worker must run with `-I app.tasks.sync_tasks`
+  (the compose `celery-worker` command includes it).
+- **Port already in use** — remap with `BACKEND_HOST_PORT` / `FRONTEND_HOST_PORT` /
+  `POSTGRES_HOST_PORT` / `REDIS_HOST_PORT`, e.g. `BACKEND_HOST_PORT=8001 docker compose up`.
