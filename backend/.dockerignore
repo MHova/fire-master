@@ -1,0 +1,16 @@
+# Keep the build context small and keep secrets/host artifacts OUT of the image.
+# The image builds its own Linux .venv via `uv sync`; .env is provided at runtime
+# (env_file / mounted volume), never baked into a layer.
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.env
+.env.*
+.monarch_session
+*.log
+.DS_Store

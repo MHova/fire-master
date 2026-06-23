@@ -2,7 +2,7 @@ services:
   postgres:
     image: postgres:16-alpine
     ports:
-      - "5432:5432"
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
     env_file:
       - backend/.env
     environment:
@@ -20,27 +20,61 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "${REDIS_HOST_PORT:-6379}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
 
+  # One-shot: applies Alembic migrations, then exits. backend/celery wait for it to
+  # finish (service_completed_successfully) so the schema always exists before they run.
+  # Seeing "migrate Exited (0)" in `docker compose ps` is NORMAL.
+  migrate:
+    build:
+      context: ./backend
+    volumes:
+      - ./backend:/app/backend
+      - /app/backend/.venv
+    # secrets come from the mounted backend/.env (read by pydantic), NOT env_file — see backend service
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-firemaster}:${POSTGRES_PASSWORD:-firemaster}@postgres:5432/${POSTGRES_DB:-firemaster}
+      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-firemaster}:${POSTGRES_PASSWORD:-firemaster}@postgres:5432/${POSTGRES_DB:-firemaster}
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: uv run alembic upgrade head
+
   backend:
     build:
       context: ./backend
     ports:
-      - "8000:8000"
+      - "${BACKEND_HOST_PORT:-8000}:8000"
     volumes:
       - ./backend:/app/backend
-    env_file:
-      - backend/.env
+      - /app/backend/.venv          # anon volume: keep the image's Linux venv; don't let a host macOS .venv shadow it
+      - ./scripts:/app/scripts      # repo-root scripts, so in-container `python ../scripts/...` works
+      - ./config:/app/config        # repo-root config, used by seed scripts
+    # NOTE: intentionally NO `env_file: backend/.env`. Docker Compose INTERPOLATES env_file
+    # values, which strips the `$...` sequences inside the bcrypt AUTH_PASSWORD_HASH and breaks
+    # login. The app reads the MOUNTED backend/.env directly via pydantic (no interpolation),
+    # so the hash stays intact; only the DB/Redis URLs are injected below as overrides.
+    environment:
+      # Inside the container, Postgres/Redis are reached by SERVICE NAME, not localhost.
+      # These override the localhost values in backend/.env (compose `environment` beats
+      # `env_file`, and pydantic reads OS-env over its .env file), so the native start.sh
+      # path — which uses backend/.env as-is — is unaffected.
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-firemaster}:${POSTGRES_PASSWORD:-firemaster}@postgres:5432/${POSTGRES_DB:-firemaster}
+      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-firemaster}:${POSTGRES_PASSWORD:-firemaster}@postgres:5432/${POSTGRES_DB:-firemaster}
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     command: uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   celery-worker:
@@ -48,28 +82,56 @@ services:
       context: ./backend
     volumes:
       - ./backend:/app/backend
-    env_file:
-      - backend/.env
+      - /app/backend/.venv          # anon volume: shield the image's Linux venv from the host mount
+    # secrets come from the mounted backend/.env (read by pydantic), NOT env_file — see backend service
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-firemaster}:${POSTGRES_PASSWORD:-firemaster}@postgres:5432/${POSTGRES_DB:-firemaster}
+      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-firemaster}:${POSTGRES_PASSWORD:-firemaster}@postgres:5432/${POSTGRES_DB:-firemaster}
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: uv run celery -A app.tasks.celery_app worker --loglevel=info
+      migrate:
+        condition: service_completed_successfully
+    # -I app.tasks.sync_tasks is REQUIRED for task autodiscovery (matches scripts/start.sh)
+    command: uv run celery -A app.tasks.celery_app worker --loglevel=info -I app.tasks.sync_tasks
 
   celery-beat:
     build:
       context: ./backend
     volumes:
       - ./backend:/app/backend
-    env_file:
-      - backend/.env
+      - /app/backend/.venv          # anon volume: shield the image's Linux venv from the host mount
+    # secrets come from the mounted backend/.env (read by pydantic), NOT env_file — see backend service
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-firemaster}:${POSTGRES_PASSWORD:-firemaster}@postgres:5432/${POSTGRES_DB:-firemaster}
+      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-firemaster}:${POSTGRES_PASSWORD:-firemaster}@postgres:5432/${POSTGRES_DB:-firemaster}
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     command: uv run celery -A app.tasks.celery_app beat --loglevel=info
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "${FRONTEND_HOST_PORT:-5173}:5173"
+    volumes:
+      - ./frontend:/app/frontend
+      - /app/frontend/node_modules    # anon volume: keep image node_modules; don't let the host's shadow it
+    environment:
+      # The Vite dev server proxies /api SERVER-SIDE (inside this container), so it must
+      # reach the backend by service name, not localhost. See frontend/vite.config.ts.
+      VITE_API_URL: http://backend:8000
+    depends_on:
+      - backend
 
 volumes:
   pgdata:

@@ -1,0 +1,7 @@
+# The image runs `npm install` itself; never copy the host node_modules
+# (wrong-architecture native binaries) or build output into the context.
+node_modules/
+dist/
+.DS_Store
+*.log
+.env.local
