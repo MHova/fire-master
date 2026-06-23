@@ -49,39 +49,57 @@ need Monarch to try the app:
 
 ## Quick start
 
-Prerequisites: [Docker Desktop](https://www.docker.com/products/docker-desktop/),
-[uv](https://docs.astral.sh/uv/), Node 18+, and git. macOS or Linux; on Windows use WSL2
-(recommended) or Git Bash — the setup scripts are bash scripts.
+Prerequisites: **[Docker Desktop](https://www.docker.com/products/docker-desktop/) and git** —
+that's it. No Python, Node, or shell tooling on your machine. Works on macOS, Windows, and
+Linux. (On Windows, Docker Desktop installs WSL2 itself — one reboot, then the commands below.)
 
 ```bash
 git clone <this-repo> firemaster && cd firemaster
 
-./scripts/setup.sh      # generates backend/.env: JWT secret + your admin password
-./scripts/start.sh      # postgres + redis (Docker), migrations, backend, worker, frontend
+docker compose run --rm backend uv run python -m app.setup   # one-time: JWT secret + your admin password
+docker compose up                                     # builds + starts everything; migrations run automatically
 ```
+
+Open **http://localhost:5173**, log in as `admin` with the password you chose, and start with
+the Dashboard and Retirement pages.
+
+> **First run builds images and can take a few minutes**; subsequent `docker compose up` is fast.
+> A `migrate` container that shows `Exited (0)` is normal — it applied migrations and quit.
+> If `:5432`/`:6379`/`:8000`/`:5173` are already taken, set e.g.
+> `BACKEND_HOST_PORT=8001 FRONTEND_HOST_PORT=5174` before the command. Operational details,
+> and how to undo any of this, are in [docs/CONTAINER_RUNBOOK.md](docs/CONTAINER_RUNBOOK.md).
 
 Then, in a second terminal — seed the demo persona and look around:
 
 ```bash
-cd backend
-uv run python ../scripts/seed_demo.py        # full demo financial life, every page alive
-uv run python ../scripts/seed_scenarios.py   # optional: example what-if scenarios
+docker compose exec backend uv run python ../scripts/seed_demo.py        # full demo financial life, every page alive
+docker compose exec backend uv run python ../scripts/seed_scenarios.py   # optional: example what-if scenarios
 ```
 
-Open **http://localhost:5173**, log in as `admin` with the password you chose, and start with
-the Dashboard and Retirement pages. The demo is safe to explore, re-seed, or remove
-(`seed_demo.py --remove`) at any time.
+The demo is safe to explore, re-seed, or remove (`seed_demo.py --remove`) at any time.
 
 ### Going live with your data
 
 ```bash
-cd backend
-uv run python ../scripts/monarch_login.py    # one-time Monarch auth (email/password/MFA)
+docker compose exec backend uv run python ../scripts/monarch_login.py    # one-time Monarch auth (email/password/MFA)
 ```
 
 Then hit **Sync Now** on the Dashboard. Full walkthrough — including account enrichment,
 property rules, and your first FIRE config — in [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md)
 and [docs/MONARCH_SETUP.md](docs/MONARCH_SETUP.md).
+
+### Contributor / native dev (optional)
+
+Prefer to run the backend and frontend **directly on your machine** for fast hot-reload? That
+path still exists. It needs [uv](https://docs.astral.sh/uv/) and Node 18+ in addition to Docker
+(which still provides Postgres/Redis), and a bash shell (macOS/Linux/WSL2):
+
+```bash
+./scripts/setup.sh      # bash: generates backend/.env (JWT secret + admin password)
+./scripts/start.sh      # postgres+redis in Docker; backend, worker, frontend on the host
+```
+
+Both paths share the same database, so you can switch between them freely.
 
 ## What's inside
 
@@ -104,16 +122,18 @@ engine, tax math, scenario merging, and property classification.
 
 ## Troubleshooting
 
-- **`Docker daemon is not running`** — start Docker Desktop first; `start.sh` checks.
-- **Port already in use** — the stack owns 5432, 6379, 8000, 5173. `start.sh` clears 8000/5173;
-  stop other Postgres/Redis instances or change the compose port mappings.
-- **bcrypt errors on Windows** — run setup under WSL2 or Git Bash with Python 3.12 x64 so a
-  prebuilt `bcrypt` wheel is used. FIREMaster calls `bcrypt` directly (not passlib, which is
-  incompatible with bcrypt 5.x) — if `setup.sh` can't hash your password, your venv likely
-  failed to install bcrypt; re-run `uv sync` inside `backend/` and watch for wheel errors.
+- **`Docker daemon is not running`** — start Docker Desktop first and wait for it to finish launching.
+- **Port already in use** — the stack publishes 5432, 6379, 8000, 5173. Remap any of them with the
+  `POSTGRES_HOST_PORT` / `REDIS_HOST_PORT` / `BACKEND_HOST_PORT` / `FRONTEND_HOST_PORT` env vars,
+  e.g. `BACKEND_HOST_PORT=8001 docker compose up`.
+- **`migrate` container shows `Exited (0)`** — that's normal; it ran migrations and quit. See
+  [docs/CONTAINER_RUNBOOK.md](docs/CONTAINER_RUNBOOK.md) for the full container troubleshooting table.
+- **Login fails with a startup error about `JWT_SECRET_KEY`/`AUTH_PASSWORD_HASH`** — you skipped
+  first-run setup: `docker compose run --rm backend uv run python -m app.setup`.
 - **Changed `backend/.env` but nothing happened** — settings are cached at process start;
-  restart the backend (and the Celery worker).
-- **Edited engine code but Celery behaves old** — the worker doesn't hot-reload; restart it.
+  `docker compose restart backend celery-worker` (or restart the host processes on the native path).
+- **Edited engine code but Celery behaves old** — the worker doesn't hot-reload;
+  `docker compose restart celery-worker`.
 - **Stack was offline for weeks** — incremental sync looks back 45 days. For longer gaps, run a
   backfill: see "Monarch sync" in [docs/MONARCH_SETUP.md](docs/MONARCH_SETUP.md).
 
@@ -131,6 +151,7 @@ is that tool, cleaned up so you can run it on yours.
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — design philosophy, the two-interface model, projection engine internals
 - [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md) — full installation walkthrough
+- [docs/CONTAINER_RUNBOOK.md](docs/CONTAINER_RUNBOOK.md) — Docker run modes, troubleshooting, and how to rewind
 - [docs/MONARCH_SETUP.md](docs/MONARCH_SETUP.md) — connecting and syncing Monarch Money
 - [docs/CLAUDE_CODE_USAGE.md](docs/CLAUDE_CODE_USAGE.md) — the AI-analyst workflow, with example prompts
 - [docs/PROPERTY_MODULE.md](docs/PROPERTY_MODULE.md) — property P&L classification internals
