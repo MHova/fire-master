@@ -101,9 +101,14 @@ docker compose up            # rebuilds the world; data still there
   `vite.config.ts`. Not needed on the default `:5173`.
 
 ### Change 3 — Auto-migrations (`docker-compose.yml`)
-- New one-shot `migrate` service: runs `uv run alembic upgrade head`, then exits. `backend`,
-  `celery-worker`, `celery-beat` now `depends_on: migrate: condition: service_completed_successfully`,
-  so the schema always exists before they start.
+- New one-shot `migrate` service: runs `uv run alembic upgrade head`, then a first-run demo
+  seed, then exits. `backend`, `celery-worker`, `celery-beat` now
+  `depends_on: migrate: condition: service_completed_successfully`, so the schema (and demo
+  data) always exist before they start.
+- **First-run demo auto-seed:** after migrating, the step runs `seed_demo.py --if-empty`, which
+  seeds the demo persona **only** when the DB has no accounts and `SEED_DEMO != false`. It is
+  wrapped in `|| true` so a seed hiccup can never block startup, and a re-run on a populated DB
+  is a no-op (idempotent guard). Start blank with `SEED_DEMO=false docker compose up`.
 - **Chosen over the plan's entrypoint-script approach on purpose:** a single migrate service
   avoids three containers racing `alembic upgrade` at once, and avoids a shell entrypoint that
   CRLF line endings could break.

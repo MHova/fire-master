@@ -57,23 +57,24 @@ Linux. (On Windows, Docker Desktop installs WSL2 itself — one reboot, then the
 git clone <this-repo> firemaster && cd firemaster
 
 docker compose run --rm backend uv run python -m app.setup   # one-time: JWT secret + your admin password
-docker compose up                                     # builds + starts everything; migrations run automatically
+docker compose up                                     # builds + starts everything; migrations + demo data load automatically
 ```
 
-Open **http://localhost:5173**, log in as `admin` with the password you chose, and start with
-the Dashboard and Retirement pages.
+Open **http://localhost:5173** and log in as `admin` with the password you chose — the **demo
+persona is already loaded**, so every page (Dashboard, Retirement, Runway, Config) is alive on
+first launch.
 
 > **First run builds images and can take a few minutes**; subsequent `docker compose up` is fast.
-> A `migrate` container that shows `Exited (0)` is normal — it applied migrations and quit.
+> A `migrate` container that shows `Exited (0)` is normal — it applied migrations + seeded the demo, then quit.
 > If `:5432`/`:6379`/`:8000`/`:5173` are already taken, set e.g.
 > `BACKEND_HOST_PORT=8001 FRONTEND_HOST_PORT=5174` before the command. Operational details,
 > and how to undo any of this, are in [docs/CONTAINER_RUNBOOK.md](docs/CONTAINER_RUNBOOK.md).
 
-Then, in a second terminal — seed the demo persona and look around:
+The demo seeds automatically on a fresh database — to start **blank** instead, run
+`SEED_DEMO=false docker compose up`. Optional extras, in a second terminal:
 
 ```bash
-docker compose exec backend uv run python ../scripts/seed_demo.py        # full demo financial life, every page alive
-docker compose exec backend uv run python ../scripts/seed_scenarios.py   # optional: example what-if scenarios
+docker compose exec backend uv run python ../scripts/seed_scenarios.py   # example what-if scenarios
 ```
 
 The demo is safe to explore, re-seed, or remove (`seed_demo.py --remove`) at any time.

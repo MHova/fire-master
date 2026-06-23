@@ -51,7 +51,8 @@ First run **builds the images** (a few minutes) and pulls Postgres/Redis. Then, 
 
 1. **postgres** and **redis** come up and pass health checks,
 2. a one-shot **migrate** service runs `alembic upgrade head` — on a fresh database this builds
-   the full schema — then **exits** (a `migrate ... Exited (0)` line in the output is normal),
+   the full schema and then **auto-seeds the demo persona** (set `SEED_DEMO=false` to skip) —
+   then **exits** (a `migrate ... Exited (0)` line in the output is normal),
 3. the **backend** (FastAPI :8000), **Celery worker** + **beat** (background sync jobs), and the
    **frontend** (Vite :5173) start.
 
@@ -62,14 +63,14 @@ Sanity checks: `http://localhost:8000/api/health` returns ok, `http://localhost:
 login screen. (If `:5432`/`:6379`/`:8000`/`:5173` are already taken, set e.g.
 `BACKEND_HOST_PORT=8001 FRONTEND_HOST_PORT=5174 docker compose up`.)
 
-## 4. Seed data — demo first
+## 4. Demo data (loaded automatically)
 
-A fresh database renders empty pages. Seed the **demo persona** to see the app working at full
-depth before you connect anything real. In a second terminal (leave `docker compose up`
-running):
+On a **fresh** database the **demo persona** is seeded automatically by the migrate step, so the
+app is alive the moment you log in — there's nothing to run. (To start blank instead, bring the
+stack up with `SEED_DEMO=false docker compose up`.) Add the example what-if scenarios whenever
+you like, in a second terminal:
 
 ```bash
-docker compose exec backend uv run python ../scripts/seed_demo.py
 docker compose exec backend uv run python ../scripts/seed_scenarios.py   # optional: example what-if scenarios
 ```
 
@@ -88,8 +89,8 @@ Demo mechanics worth knowing:
   deletes every demo row. Demo rows are manual-source, so they coexist safely with a later real
   Monarch sync until you remove them.
 
-If you'd rather start blank (no demo), seed just a starter FIRE config so the Retirement page
-has something to project:
+If you started blank (`SEED_DEMO=false`) but still want the Retirement page to project
+something, seed just a starter FIRE config:
 `docker compose exec backend uv run python ../scripts/seed_config.py`.
 
 ## 5. Log in and tour

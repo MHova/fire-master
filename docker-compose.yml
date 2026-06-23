@@ -36,15 +36,20 @@ services:
     volumes:
       - ./backend:/app/backend
       - /app/backend/.venv
+      - ./scripts:/app/scripts      # for the first-run demo auto-seed
+      - ./config:/app/config
     # secrets come from the mounted backend/.env (read by pydantic), NOT env_file — see backend service
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-firemaster}:${POSTGRES_PASSWORD:-firemaster}@postgres:5432/${POSTGRES_DB:-firemaster}
       DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-firemaster}:${POSTGRES_PASSWORD:-firemaster}@postgres:5432/${POSTGRES_DB:-firemaster}
       REDIS_URL: redis://redis:6379/0
+      # First boot only: auto-seed the demo persona when the DB is empty. SEED_DEMO=false starts blank.
+      SEED_DEMO: ${SEED_DEMO:-true}
     depends_on:
       postgres:
         condition: service_healthy
-    command: uv run alembic upgrade head
+    # migrate, THEN first-run demo seed (seeds an EMPTY db only; `|| true` keeps it non-fatal)
+    command: ["sh", "-c", "uv run alembic upgrade head && (uv run python ../scripts/seed_demo.py --if-empty || true)"]
 
   backend:
     build:

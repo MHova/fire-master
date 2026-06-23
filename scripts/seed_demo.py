@@ -39,6 +39,7 @@ Usage:
 import argparse
 import asyncio
 import math
+import os
 import sys
 from datetime import date, timedelta
 from pathlib import Path
@@ -459,6 +460,24 @@ Done. The demo persona is live (anchored to {anchor}).
 """)
 
 
+async def seed_if_empty() -> None:
+    """First-run auto-seed used by the migrate step: seed the demo persona ONLY when the
+    database has no accounts and SEED_DEMO is not 'false'. No-op otherwise. Never raises —
+    a seeding hiccup must not block the stack from starting."""
+    if os.environ.get("SEED_DEMO", "true").strip().lower() == "false":
+        print("SEED_DEMO=false — skipping first-run demo auto-seed.")
+        return
+    try:
+        async with async_session_factory() as session:
+            existing = await session.execute(select(Account).limit(1))
+            if existing.scalar_one_or_none() is not None:
+                print("Database already has accounts — skipping demo auto-seed.")
+                return
+        await seed(force=False, with_config=False)
+    except Exception as exc:  # noqa: BLE001 — must never block stack startup
+        print(f"Demo auto-seed skipped (non-fatal): {exc}")
+
+
 async def remove() -> None:
     async with async_session_factory() as session:
         demo_accounts = await _demo_rows(session, Account)
@@ -509,9 +528,14 @@ if __name__ == "__main__":
                         help="seed data rows even if Monarch accounts exist (demo/testing only)")
     parser.add_argument("--with-config", action="store_true",
                         help="overwrite an already-customized FIRE config with the demo persona")
+    parser.add_argument("--if-empty", action="store_true",
+                        help="first-run auto-seed: seed only if the DB has no accounts and "
+                             "SEED_DEMO != false; no-op otherwise (used by the migrate step)")
     args = parser.parse_args()
 
     if args.remove:
         asyncio.run(remove())
+    elif args.if_empty:
+        asyncio.run(seed_if_empty())
     else:
         asyncio.run(seed(force=args.force, with_config=args.with_config))
