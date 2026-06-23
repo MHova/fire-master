@@ -50,7 +50,7 @@ async def clear_demo_data(db: AsyncSession) -> dict:
     Does not commit; the caller owns the transaction. Returns a count summary.
 
     The FIRE config is intentionally left untouched: it is the user's *plan*, not
-    data, and only they can replace it (on the /config page).
+    data, and only they can replace it (under Settings -> Plan).
     """
     demo_accounts = (
         await db.execute(select(Account).where(_demo_filter(Account)))

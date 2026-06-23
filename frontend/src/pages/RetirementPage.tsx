@@ -389,7 +389,7 @@ function ScenarioSelector() {
           )}
           <div className="h-px bg-[var(--border)] my-1" />
           <Link
-            to="/fire/config"
+            to="/settings"
             onClick={() => setOpen(false)}
             className="block px-3 py-2 text-[10px] text-[var(--blue)] hover:bg-[var(--bg-hover)]"
           >
@@ -616,7 +616,7 @@ export default function RetirementPage() {
           <div className="flex items-center gap-2">
             <ScenarioSelector />
             <Link
-              to="/fire/config"
+              to="/settings"
               className="px-3 py-1.5 text-xs bg-[var(--bg-secondary)] border border-[var(--border)] rounded hover:border-[var(--blue)] transition-colors"
             >
               Configure
@@ -666,7 +666,7 @@ export default function RetirementPage() {
               Set your date of birth and target retirement age to see projections.
             </p>
             <Link
-              to="/fire/config"
+              to="/settings"
               className="text-sm text-[var(--blue)] hover:underline"
             >
               Configure FIRE settings

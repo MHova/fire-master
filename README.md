@@ -87,7 +87,7 @@ docker compose exec backend uv run python ../scripts/monarch_login.py    # one-t
 ```
 
 Then hit **Sync Now** on the Dashboard — your first sync **auto-clears the demo persona**,
-leaving just your data (rebuild your plan on the Config page). Full walkthrough — including
+leaving just your data (rebuild your plan under **Settings → Plan** in the sidebar). Full walkthrough — including
 account enrichment, property rules, and your first FIRE config — in
 [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md) and [docs/MONARCH_SETUP.md](docs/MONARCH_SETUP.md).
 

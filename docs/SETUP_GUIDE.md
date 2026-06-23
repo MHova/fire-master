@@ -97,20 +97,20 @@ something, seed just a starter FIRE config:
 
 Open **http://localhost:5173**, log in (`admin` / your password). Suggested order with demo
 data: **Dashboard** (net worth + history) → **Retirement** (the projection — hover the event
-markers) → **Runway** (cash months remaining) → the **Config** page (every assumption driving
-what you just saw).
+markers) → **Runway** (cash months remaining) → **Settings → Plan** (every assumption driving
+what you just saw — the gear in the sidebar).
 
 ## 6. Go live: connect Monarch
 
 When you're ready for your real data, follow [MONARCH_SETUP.md](MONARCH_SETUP.md):
 authenticate once, hit **Sync Now**, and enrich your accounts with FIRE roles. Your first sync
-**auto-clears the demo persona** (only the FIRE config stays, for you to rebuild on the Config
-page). Property owners: also see the property import section there and
+**auto-clears the demo persona** (only the FIRE config stays, for you to rebuild under
+**Settings → Plan**). Property owners: also see the property import section there and
 [PROPERTY_MODULE.md](PROPERTY_MODULE.md).
 
 ## 7. Make the config yours
 
-Everything the projections assume lives in one place: the **Config** page (base plan) plus
+Everything the projections assume lives in one place: **Settings → Plan** (base plan) plus
 **scenarios** (named override sets compared on the Retirement page).
 
 - Base config: date of birth, target spending, Social Security, healthcare, withdrawal

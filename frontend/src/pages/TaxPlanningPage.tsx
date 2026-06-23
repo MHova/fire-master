@@ -198,7 +198,7 @@ export default function TaxPlanningPage() {
             </p>
           </div>
           <Link
-            to="/fire/config"
+            to="/settings"
             className="px-3 py-1.5 text-xs bg-[var(--bg-secondary)] border border-[var(--border)] rounded hover:border-[var(--blue)] transition-colors"
           >
             Configure

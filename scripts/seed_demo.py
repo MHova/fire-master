@@ -495,7 +495,7 @@ async def remove() -> None:
         config = result.scalar_one_or_none()
         if config is not None and (config.custom_assumptions or {}).get("demo_persona"):
             print("\n  NOTE: the FIRE config still holds the demo persona's plan.")
-            print("  Replace it with your own numbers on the /config page (or run seed_config.py")
+            print("  Replace it with your own numbers under Settings -> Plan (or run seed_config.py")
             print("  after clearing it) — projections reflect the demo until you do.")
 
         await session.commit()

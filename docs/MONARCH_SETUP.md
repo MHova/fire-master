@@ -104,8 +104,8 @@ persona** — accounts, balance history, income sources, and cashflow events. It
 so it only ever deletes demo rows; your synced data is never touched.
 
 The one thing that stays is the **FIRE config** — that's your retirement *plan*, and only you
-can write it. Rebuild it on the **Config** page (projections reflect the demo persona's plan
-until you replace it).
+can write it. Rebuild it under **Settings → Plan** (the gear in the left sidebar) — projections
+reflect the demo persona's plan until you replace it.
 
 ```bash
 # Optional escape hatches:

@@ -11,7 +11,6 @@ import {
   useDeleteScenario,
   useActivateScenario,
 } from "../api/queries";
-import Layout from "../components/Layout";
 import { formatCurrency } from "../utils/formatting";
 import type { FireScenario } from "../types/fire";
 
@@ -236,11 +235,11 @@ export default function FireConfigPage() {
 
   if (isLoading || !config) {
     return (
-      <Layout>
+      <>
         <div className="flex items-center justify-center h-96 text-[var(--text-secondary)]">
           Loading...
         </div>
-      </Layout>
+      </>
     );
   }
 
@@ -248,14 +247,11 @@ export default function FireConfigPage() {
   const labelCls = "block text-xs uppercase tracking-wider text-[var(--text-secondary)] mb-1.5";
 
   return (
-    <Layout>
+    <>
       <div className="space-y-6 max-w-4xl">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <Link to="/retirement" className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors mb-1 inline-block">
-              <span className="text-xs">&larr;</span> Retirement Dashboard
-            </Link>
             <h2 className="text-xl font-semibold text-[var(--text-primary)] tracking-tight">
               FIRE Configuration
             </h2>
@@ -599,7 +595,7 @@ export default function FireConfigPage() {
         {/* Scenarios */}
         <ScenariosSection />
       </div>
-    </Layout>
+    </>
   );
 }
 

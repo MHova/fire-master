@@ -6,7 +6,7 @@ import SpendingTrackerPage from "./pages/SpendingTrackerPage";
 import AssetsPage from "./pages/AssetsPage";
 import AccountDetailPage from "./pages/AccountDetailPage";
 import RetirementPage from "./pages/RetirementPage";
-import FireConfigPage from "./pages/FireConfigPage";
+import SettingsPage from "./pages/SettingsPage";
 import TaxPlanningPage from "./pages/TaxPlanningPage";
 import RunwayPage from "./pages/RunwayPage";
 import PropertyPnLPage from "./pages/PropertyPnLPage";
@@ -98,13 +98,15 @@ export default function App() {
         }
       />
       <Route
-        path="/fire/config"
+        path="/settings"
         element={
           <ProtectedRoute>
-            <FireConfigPage />
+            <SettingsPage />
           </ProtectedRoute>
         }
       />
+      {/* Back-compat: the config form now lives under Settings → Plan */}
+      <Route path="/fire/config" element={<Navigate to="/settings" replace />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
