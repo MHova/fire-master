@@ -28,13 +28,15 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     if settings.JWT_SECRET_KEY in ("change-me", ""):
         raise RuntimeError(
-            "JWT_SECRET_KEY must be set to a secure random value. "
-            "See .env.example for details."
+            "JWT_SECRET_KEY is not set. Run first-run setup:\n"
+            "  docker compose run --rm backend uv run python -m app.setup   (Docker)\n"
+            "  uv run python -m app.setup                             (native dev, from backend/)"
         )
     if not settings.AUTH_PASSWORD_HASH or not settings.AUTH_PASSWORD_HASH.startswith("$2"):
         raise RuntimeError(
-            "AUTH_PASSWORD_HASH must be set to a valid bcrypt hash. "
-            "Generate one with: python -c \"import bcrypt; print(bcrypt.hashpw(b'yourpassword', bcrypt.gensalt()).decode())\""
+            "AUTH_PASSWORD_HASH is not a valid bcrypt hash. Run first-run setup:\n"
+            "  docker compose run --rm backend uv run python -m app.setup   (Docker)\n"
+            "  uv run python -m app.setup                             (native dev, from backend/)"
         )
     yield
     # Shutdown
