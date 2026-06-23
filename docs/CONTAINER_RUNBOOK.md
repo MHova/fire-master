@@ -1,0 +1,210 @@
+# Container Runbook — how the Docker path works, and how to rewind it
+
+> **Audience: the owner (you), not end users.** This is the operational companion to
+> [CONTAINERIZATION.md](../CONTAINERIZATION.md). That document is the *plan*; this is the
+> *"what actually changed, how to run it, and how to undo it if it breaks"* reference.
+>
+> Written to be read when something is on fire and you don't remember the details.
+
+---
+
+## TL;DR — the two ways to run FIREMaster now
+
+| | **Native (contributor) path** | **Docker (user) path** |
+|---|---|---|
+| Command | `./scripts/start.sh` | `docker compose up` |
+| Backend runs | on your Mac (host) via `uv` | inside a container |
+| Frontend runs | on your Mac via `npm` | inside a container |
+| Postgres/Redis | Docker containers | same Docker containers |
+| `.env` `DATABASE_URL` | `@localhost:5432` (used as-is) | overridden to `@postgres:5432` by compose |
+| Who it's for | **you**, for fast edit-reload dev | **new users**, easiest install |
+
+**Both paths share the same Postgres data** (the `firemaster-postgres-1` container / `firemaster_pgdata`
+volume). Switching between them does not move or copy your data.
+
+---
+
+## The single most important safety rule
+
+```
+NEVER run `docker compose down -v` on the default project.
+```
+
+The `-v` flag **deletes the data volumes** — that is your real financial database
+(`firemaster_pgdata`). `docker compose down` (no `-v`) is safe: it stops containers but keeps
+data. Only ever use `-v` against the throwaway **`fmtest`** project (see Testing below).
+
+---
+
+## How to rewind (in order of severity)
+
+### 1. Undo a single change
+The work is committed in logical groups on the `containerize` branch (run `git log --oneline`:
+the Docker stack, the setup module, the docs relabel, the runbook). To back one out:
+```bash
+git log --oneline           # find the commit
+git revert <sha>            # makes a new commit that undoes it
+```
+
+### 2. Throw away ALL the container work, keep your app working
+The native path (`./scripts/start.sh`) is untouched by any of this. To abandon the whole
+effort and go back to exactly how things were:
+```bash
+git checkout main
+git branch -D containerize   # optional: delete the branch entirely
+./scripts/start.sh           # your normal workflow, unchanged
+```
+Your `backend/.env` (with `@localhost`) and your data are exactly as they were.
+
+### 3. "I shut my servers down and want them back"
+```bash
+./scripts/start.sh           # relaunches backend :8000, frontend :5173, celery
+```
+`start.sh` detects that Postgres/Redis are already running and reuses them.
+
+### 4. Nuke all containers and start clean — WITHOUT losing data
+```bash
+docker compose down          # stops + removes containers, KEEPS volumes (your data)
+docker compose up            # rebuilds the world; data still there
+```
+
+---
+
+## What changed, file by file (Changes 1–5)
+
+> Filled in as each change lands. Each heading notes the commit and how to verify it.
+
+### Change 1 — Networking fix + volume-shadow fix (`docker-compose.yml`)
+- **Networking:** added an `environment:` block to `backend`, `celery-worker`, `celery-beat`
+  overriding `DATABASE_URL`, `DATABASE_URL_SYNC`, `REDIS_URL` to use the **service names**
+  (`@postgres:5432`, `redis:6379`) instead of `localhost`. Compose `environment:` wins over
+  the `env_file`, and pydantic reads OS-env over its `.env` file — so your `backend/.env`
+  stays `@localhost` and the **native path still works**.
+- **Volume-shadow fix (not in the original plan — would have crashed the backend):** the
+  compose file bind-mounts `./backend:/app/backend`, which overlays your Mac's
+  `backend/.venv` (macOS arm64 Python) on top of the container's Linux `.venv`. Running
+  macOS binaries in a Linux container = instant crash. Fix: an **anonymous volume**
+  `- /app/backend/.venv` on each backend-image service, which preserves the image's Linux
+  venv. Same idea applied to the frontend's `node_modules` in Change 2.
+- **Verify:** `docker compose up backend` → logs show a successful DB connection, not
+  `Connection refused`.
+
+### Change 2 — Frontend container (`frontend/Dockerfile`, `docker-compose.yml`)
+- New `frontend/Dockerfile` (node:20-slim): `npm install`, copy app, run the Vite dev server
+  with **`--host`** (binds `0.0.0.0` — without it `:5173` is unreachable from the host).
+- New `frontend` compose service: publishes `${FRONTEND_HOST_PORT:-5173}:5173`, sets
+  **`VITE_API_URL=http://backend:8000`** (the Vite proxy in `vite.config.ts` runs *inside* the
+  container, so it must reach the backend by service name), and an anonymous
+  `- /app/frontend/node_modules` volume (same shadow fix as the backend's `.venv`).
+- **Verify:** `docker compose up` → open `http://localhost:5173`, dashboard loads, API calls work.
+- **If HMR (hot reload) misbehaves on a remapped port:** add `server.hmr.clientPort` to
+  `vite.config.ts`. Not needed on the default `:5173`.
+
+### Change 3 — Auto-migrations (`docker-compose.yml`)
+- New one-shot `migrate` service: runs `uv run alembic upgrade head`, then exits. `backend`,
+  `celery-worker`, `celery-beat` now `depends_on: migrate: condition: service_completed_successfully`,
+  so the schema always exists before they start.
+- **Chosen over the plan's entrypoint-script approach on purpose:** a single migrate service
+  avoids three containers racing `alembic upgrade` at once, and avoids a shell entrypoint that
+  CRLF line endings could break.
+- Alembic reads `DATABASE_URL_SYNC` from the env ([backend/alembic/env.py](../backend/alembic/env.py)),
+  which the migrate service sets to `@postgres:5432`.
+- **Verify (fresh DB):** under `fmtest`, `docker compose ... up`; `migrate` logs show
+  `Running upgrade … `, then the backend starts against a populated schema.
+
+### Change 4 — Cross-platform setup (`backend/app/setup.py`, `backend/app/main.py`)
+- New `python -m app.setup`: generates a JWT secret (`secrets.token_hex`) and a bcrypt admin
+  hash, writes `backend/.env`. Pure Python + bcrypt (in the image) — no openssl/sed/read/bash,
+  so it runs identically on Windows. Interactive password prompt, or non-interactive via
+  `FIREMASTER_ADMIN_PASSWORD` (+ optional `FIREMASTER_ADMIN_USERNAME`, `FIREMASTER_FORCE_SETUP=1`).
+- It writes `backend/.env` (the mounted file), so the secret persists on the host and is read by
+  every service. It does **not** read `.env.example` (repo root isn't mounted) — the template is
+  embedded in the module.
+- `main.py` startup errors now point at this command instead of a manual bcrypt one-liner.
+- **Run it once:** `docker compose run --rm backend uv run python -m app.setup`.
+
+### Change 5 — Retire `start.sh` as the user path (`scripts/`, `README`)
+- `scripts/start.sh` and `scripts/setup.sh` are **kept**, but their header comments now mark them
+  as the *optional native/contributor* path. Nothing was deleted — the native workflow is intact.
+- README Quick start now leads with `docker compose up`; the native path is a clearly-labeled
+  "Contributor / native dev (optional)" subsection.
+
+### Supporting — `.dockerignore`, `.gitattributes`
+- `backend/.dockerignore` / `frontend/.dockerignore`: keep `.venv`/`node_modules`/secrets out of
+  the image build context (the backend's `COPY . .` was otherwise baking `.env` into a layer).
+- `.gitattributes`: `*.sh text eol=lf` — the CRLF guard.
+- Also folded into Change 1: the compose `celery-worker` command was **missing**
+  `-I app.tasks.sync_tasks` (required for task autodiscovery per CLAUDE.md) — added.
+
+---
+
+## Testing safely (the `fmtest` isolated project)
+
+All container testing runs under a **separate Docker Compose project** named `fmtest`, with
+**remapped host ports**, so it cannot collide with your running services or touch your real
+data volumes. A `fmtest` project gets its own network and its own EMPTY volumes
+(`fmtest_pgdata`), entirely separate from the real `firemaster_*` volumes.
+
+The published host ports are parameterized in `docker-compose.yml`
+(`${POSTGRES_HOST_PORT:-5432}`, `${REDIS_HOST_PORT:-6379}`, `${BACKEND_HOST_PORT:-8000}`,
+`${FRONTEND_HOST_PORT:-5173}`), so an isolated stack just sets them inline:
+
+```bash
+# bring up an isolated copy on non-conflicting ports
+POSTGRES_HOST_PORT=5599 REDIS_HOST_PORT=6399 BACKEND_HOST_PORT=8020 FRONTEND_HOST_PORT=5190 \
+  docker compose -p fmtest up
+
+# tear it down INCLUDING its throwaway data (safe: only touches fmtest_* volumes)
+docker compose -p fmtest down -v
+```
+
+(Those same env vars are the escape hatch for any **user** whose `:5432`/`:5173` is already
+taken — no file edits, just set the var.)
+
+---
+
+## Troubleshooting (the gotchas that actually bite)
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Backend logs `Connection refused` to DB | `.env` points at `localhost` inside the container | Change 1 override missing/typo'd; confirm `environment:` block on the service |
+| Backend exits with `bad interpreter` / `exec format error` | The `.venv` volume-shadow bug | confirm the `- /app/backend/.venv` anonymous volume is present |
+| Frontend container starts but browser can't reach `:5173` | Vite bound to localhost inside the container | Dockerfile must run `vite --host` (binds `0.0.0.0`) |
+| Frontend loads but all API calls 500/fail | Vite proxy still points at `localhost:8000` | `VITE_API_URL=http://backend:8000` must be set on the frontend service |
+| `migrate` container shows "Exited (0)" | **Normal** — it's a one-shot that runs migrations then quits | nothing to fix |
+| Backend crashes: `JWT_SECRET_KEY must be set…` | No valid `.env` yet | run the setup command (Change 4): `docker compose run --rm backend uv run python -m app.setup` |
+| Login always fails with the *correct* password | **The env_file `$`-interpolation bug** (found during build): Compose interpolates `env_file` values, stripping `$…` sequences out of the bcrypt hash | the app services intentionally have **no** `env_file` — secrets load from the *mounted* `backend/.env` via pydantic. Do **not** re-add `env_file:` to backend/celery/migrate |
+| `ModuleNotFoundError` running `docker compose … backend python …` | Bare `python` uses the system interpreter, not the uv venv | prefix with `uv run`: `… backend uv run python …` |
+| Old Python package after changing deps | The anonymous `.venv` volume persists across rebuilds and can hold stale deps | rebuild, then `docker compose up --build --renew-anon-volumes` (renews the anon `.venv` only; the named data volume is kept) |
+| Port already in use on `up` | Your native stack or sister project is running | remap with `BACKEND_HOST_PORT=…` etc., or stop the native app layer |
+| Edited a `.sh` file on Windows, container won't start | CRLF line endings | `.gitattributes` forces `*.sh` to LF; re-checkout the file |
+
+### Useful inspection commands
+```bash
+docker compose ps                      # what's running in this project
+docker compose logs -f backend         # follow the backend logs
+docker compose logs migrate            # see what the migration step did
+docker ps -a                           # ALL containers (every project)
+docker compose config                  # the fully-resolved compose file (after env substitution)
+```
+
+---
+
+## Appendix — the running-services map (as of containerization work)
+
+Three independent things run on this machine; don't confuse them:
+
+- **FIRE quant sister project** — `:8001` backend (`api.main`), `:5174` vite. *Different project,
+  leave alone.*
+- **FIREMaster (yours)** — native: `:8000` backend (`app.main`), `:5173` vite; data in
+  `firemaster-postgres-1` / `firemaster-redis-1`.
+- **FIREMaster (demo)** — native: `:8010` backend, `:5180` vite; data in standalone `fmdemo-pg`
+  (`:5499`).
+
+Scoped shutdown of just the FIREMaster app layer (keeps data + sister project):
+```bash
+pkill -f 'uvicorn app.main:app'
+pkill -f 'FIREMaster/backend/.venv/bin/celery'
+pkill -f 'uv run celery -A app.tasks.celery_app'
+pkill -f 'FIREMaster/frontend/node_modules/.bin/vite'
+```
