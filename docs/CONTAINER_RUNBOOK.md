@@ -1,8 +1,7 @@
 # Container Runbook — how the Docker path works, and how to rewind it
 
-> **Audience: the owner (you), not end users.** This is the operational companion to
-> [CONTAINERIZATION.md](../CONTAINERIZATION.md). That document is the *plan*; this is the
-> *"what actually changed, how to run it, and how to undo it if it breaks"* reference.
+> **Audience: the owner (you), not end users.** The "what actually changed, how to run it,
+> and how to undo it if it breaks" reference for the Docker setup.
 >
 > Written to be read when something is on fire and you don't remember the details.
 
@@ -140,6 +139,16 @@ docker compose up            # rebuilds the world; data still there
 - `.gitattributes`: `*.sh text eol=lf` — the CRLF guard.
 - Also folded into Change 1: the compose `celery-worker` command was **missing**
   `-I app.tasks.sync_tasks` (required for task autodiscovery per CLAUDE.md) — added.
+
+---
+
+## Still open (future, not blocking)
+
+- **Multi-arch prebuilt images:** build amd64 + arm64 images in CI and push to GHCR so
+  `docker compose pull` skips the local build (faster first run, no architecture surprises).
+- **Windows + amd64 acceptance test:** prove the install on real amd64 Windows hardware —
+  see [AZURE_WINDOWS_TEST.md](AZURE_WINDOWS_TEST.md). (macOS dev covers ~everything else;
+  arm64 Macs never exercise the amd64 image a typical Windows user downloads.)
 
 ---
 

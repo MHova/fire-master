@@ -10,7 +10,8 @@ non-nested size — **or an AMD variant (`Das_v5` / `Dad_v5`), which don't expos
 you'll hit the exact "virtualization support not detected" error again.
 
 **Bonus:** Azure Windows VMs are **amd64** — the architecture most real Windows users run,
-and the one your arm64 Mac/VM never exercises (see Part 4 of `../CONTAINERIZATION.md`).
+and the one your arm64 Mac/VM never exercises (see "Still open" in
+[CONTAINER_RUNBOOK.md](CONTAINER_RUNBOOK.md)).
 
 > **Cost:** a `Standard_D4s_v5` runs roughly **$0.35–0.40/hour** with the Windows license
 > (a `D2s_v5` — 2 vCPU/8 GB — is about half and usually enough; 16 GB is just more comfortable

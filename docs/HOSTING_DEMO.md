@@ -58,5 +58,5 @@ makes the 1:1-onboarding funnel self-serve.
 
 - Pricing is from a Jan-2026 knowledge cutoff — sanity-check current DO rates (the *shape*
   holds: ~$6/mo).
-- Multi-arch prebuilt images (Change 6 in [../CONTAINERIZATION.md](../CONTAINERIZATION.md))
+- Multi-arch prebuilt images (see "Still open" in [CONTAINER_RUNBOOK.md](CONTAINER_RUNBOOK.md))
   would remove the first-build wait on the droplet — nice-to-have, not required.
