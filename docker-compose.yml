@@ -4,7 +4,8 @@ services:
     ports:
       - "${POSTGRES_HOST_PORT:-5432}:5432"
     env_file:
-      - backend/.env
+      - path: backend/.env
+        required: false
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-firemaster}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-firemaster}

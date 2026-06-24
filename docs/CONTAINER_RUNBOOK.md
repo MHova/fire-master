@@ -146,9 +146,9 @@ docker compose up            # rebuilds the world; data still there
 
 - **Multi-arch prebuilt images:** build amd64 + arm64 images in CI and push to GHCR so
   `docker compose pull` skips the local build (faster first run, no architecture surprises).
-- **Windows + amd64 acceptance test:** prove the install on real amd64 Windows hardware.
-  (macOS dev covers ~everything else; arm64 Macs never exercise the amd64 image a typical
-  Windows user downloads. Owner's step-by-step lives in private strategy, not this repo.)
+- ~~**Windows + amd64 acceptance test:**~~ **Done** (Jun 2026). Validated on Azure
+  `Standard_D4s_v7` / Windows Server 2025: Docker Desktop + WSL2 nested virt, amd64 images,
+  demo auto-seed, scenarios — all passing. No bash/uv/node on the host.
 
 ---
 
