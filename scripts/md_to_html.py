@@ -1,10 +1,10 @@
-"""Convert a Markdown file to a styled HTML report in the FIRE Master dark theme.
+"""Convert a Markdown file to a styled HTML report in the FIREMaster dark theme.
 
 Handles pandoc's quirks with pipe tables and list spacing:
 - Inserts blank lines before list blocks so pandoc recognizes them as <ul>/<li>
 - Converts 2-space sub-items to 4-space for proper nesting
 - Uses +pipe_tables extension for markdown table support
-- Wraps output in the FIRE Master dark theme (Inter + JetBrains Mono fonts)
+- Wraps output in the FIREMaster dark theme (Inter + JetBrains Mono fonts)
 
 Usage:
     cd backend && uv run python ../scripts/md_to_html.py ../PATH.md ../reports/PATH.html

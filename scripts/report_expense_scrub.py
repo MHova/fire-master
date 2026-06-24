@@ -278,7 +278,7 @@ def generate_html(categories, monthly, parents):
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FIRE Master — Expense Scrub {YEAR}</title>
+<title>FIREMaster — Expense Scrub {YEAR}</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
   * {{ margin: 0; padding: 0; box-sizing: border-box; }}
@@ -325,7 +325,7 @@ def generate_html(categories, monthly, parents):
 <div class="container">
 
 <h1>Expense Scrub — {YEAR}</h1>
-<p class="subtitle">Every dollar categorized. What's fixed, what's cuttable, and what the floor looks like. Auto-generated from FIRE Master DB.</p>
+<p class="subtitle">Every dollar categorized. What's fixed, what's cuttable, and what the floor looks like. Auto-generated from FIREMaster DB.</p>
 
 <div class="hero-grid">
   <div class="stat-card"><div class="stat-label">Total {YEAR} Spend</div><div class="stat-value red">{fmt(total_cents)}</div></div>
@@ -402,7 +402,7 @@ def generate_html(categories, monthly, parents):
 </div>
 
 <p style="color: #8888a0; font-size: 11px; text-align: center; margin-top: 32px;">
-  Auto-generated from FIRE Master transaction data — {YEAR} calendar year — {date.today().isoformat()}<br>
+  Auto-generated from FIREMaster transaction data — {YEAR} calendar year — {date.today().isoformat()}<br>
   Edit classifications in scripts/report_expense_scrub.py (FIXED, SEMI sets) and re-run.
 </p>
 

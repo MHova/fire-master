@@ -1,8 +1,8 @@
-# FIRE Master — Architecture & Design Philosophy
+# FIREMaster — Architecture & Design Philosophy
 
 ## The Core Insight
 
-The defining architectural decision of FIRE Master emerged accidentally during development. The original spec positioned an in-app AI advisor (Claude API chat panel) as the platform's "key differentiator." But through building it, we discovered the real power architecture:
+The defining architectural decision of FIREMaster emerged accidentally during development. The original spec positioned an in-app AI advisor (Claude API chat panel) as the platform's "key differentiator." But through building it, we discovered the real power architecture:
 
 **Claude Code (Opus 4.6) is the primary analysis tool — not the in-app advisor.**
 
@@ -12,7 +12,7 @@ This isn't a workaround — it's the optimal architecture for a single-user powe
 
 ## The Two-Interface Architecture
 
-FIRE Master is a two-interface application. Each interface does what it's best at:
+FIREMaster is a two-interface application. Each interface does what it's best at:
 
 - **The Frontend** handles display and data entry — dashboards, charts, enrichment forms, configuration.
 - **Claude Code** handles analysis and planning — scenario modeling, tax strategy, personalized advice.
@@ -82,7 +82,7 @@ Neither is the "real" UI. They're complementary. The backend API layer is the sh
 
 ### What makes this different from a normal app
 
-Most applications have one UI. FIRE Master has two, and they're asymmetric:
+Most applications have one UI. FIREMaster has two, and they're asymmetric:
 
 | Capability | Frontend | Claude Code |
 |-----------|----------|-------------|
@@ -119,12 +119,12 @@ The spec originally planned integrations with ProjectionLab (browser-based Plugi
 - **The real gap**: These tools answer "what does the math say?" Claude Code answers "what should *you* do, given everything I know about your accounts, strategy, tax situation, and goals?" The enrichment layer is what makes that possible.
 
 ### vs. Traditional Financial Software
-Mint, YNAB, Personal Capital — all consumer tools optimized for mass market. FIRE Master is a single-user power tool optimized for one person's specific FIRE journey. The information density, the enrichment system, the draw-down FIRE rule, the lifetime projections — none of this exists in consumer tools.
+Mint, YNAB, Personal Capital — all consumer tools optimized for mass market. FIREMaster is a single-user power tool optimized for one person's specific FIRE journey. The information density, the enrichment system, the draw-down FIRE rule, the lifetime projections — none of this exists in consumer tools.
 
 ## Key Design Decisions
 
 ### Draw-Down-to-Zero FIRE Rule
-Instead of the traditional 4% perpetual rule (which preserves principal forever, leaving millions behind), FIRE Master uses a draw-down-to-target-legacy calculation:
+Instead of the traditional 4% perpetual rule (which preserves principal forever, leaving millions behind), FIREMaster uses a draw-down-to-target-legacy calculation:
 
 ```
 PV = W × [(1 - (1+r)^(-n)) / r] + legacy × (1+r)^(-n)

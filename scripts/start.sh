@@ -106,7 +106,7 @@ FRONTEND_PID=$!
 cd "$PROJECT_DIR"
 
 echo ""
-echo "FIRE Master is running:"
+echo "FIREMaster is running:"
 echo "  Dashboard: http://localhost:5173"
 echo "  API:       http://localhost:8000/api/health"
 echo "  API Docs:  http://localhost:8000/docs"
