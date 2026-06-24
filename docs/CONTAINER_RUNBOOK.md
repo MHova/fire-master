@@ -146,9 +146,9 @@ docker compose up            # rebuilds the world; data still there
 
 - **Multi-arch prebuilt images:** build amd64 + arm64 images in CI and push to GHCR so
   `docker compose pull` skips the local build (faster first run, no architecture surprises).
-- **Windows + amd64 acceptance test:** prove the install on real amd64 Windows hardware —
-  see [AZURE_WINDOWS_TEST.md](AZURE_WINDOWS_TEST.md). (macOS dev covers ~everything else;
-  arm64 Macs never exercise the amd64 image a typical Windows user downloads.)
+- **Windows + amd64 acceptance test:** prove the install on real amd64 Windows hardware.
+  (macOS dev covers ~everything else; arm64 Macs never exercise the amd64 image a typical
+  Windows user downloads. Owner's step-by-step lives in private strategy, not this repo.)
 
 ---
 
