@@ -4,16 +4,18 @@ A repeatable, throwaway **Windows + Docker** environment for the Windows accepta
 the one this project can't run on an Apple Silicon (M1/M2) Mac VM, because that hardware
 can't do **nested virtualization** and Docker Desktop/WSL2 require it.
 
-**Why Dv5 specifically:** the Azure **Dv5 / Dsv5** sizes expose nested virtualization, so
-Windows' WSL2/Hyper-V (and therefore Docker Desktop) run normally. Pick a non-nested size
-and you'll hit the exact "virtualization support not detected" error again.
+**Why Dv5 specifically:** the Azure **Intel `Dsv5` / `Dv5`** sizes expose nested
+virtualization, so Windows' WSL2/Hyper-V (and therefore Docker Desktop) run normally. Pick a
+non-nested size — **or an AMD variant (`Das_v5` / `Dad_v5`), which don't expose it** — and
+you'll hit the exact "virtualization support not detected" error again.
 
 **Bonus:** Azure Windows VMs are **amd64** — the architecture most real Windows users run,
 and the one your arm64 Mac/VM never exercises (see Part 4 of `../CONTAINERIZATION.md`).
 
-> **Cost:** a `Standard_D4s_v5` runs roughly **$0.20–0.30/hour** (compute + Windows
-> license). A test session is a few dollars. **Deallocate or delete when done** (Part F) or
-> it bills around the clock.
+> **Cost:** a `Standard_D4s_v5` runs roughly **$0.35–0.40/hour** with the Windows license
+> (a `D2s_v5` — 2 vCPU/8 GB — is about half and usually enough; 16 GB is just more comfortable
+> for building images). A test session is a few dollars. **Deallocate or delete when done**
+> (Part F) or it bills around the clock.
 
 ---
 
@@ -45,7 +47,9 @@ and the one your arm64 Mac/VM never exercises (see Part 4 of `../CONTAINERIZATIO
    - **Size:** click "See all sizes", search **D4s_v5** → `Standard_D4s_v5`
      (4 vCPU / 16 GiB). *Make sure it's a `v5` — that's the nested-virt-capable family.*
    - **Administrator account:** set a username (e.g. `azureuser`) and a strong password.
-   - **Inbound ports:** allow **RDP (3389)**.
+   - **Inbound ports:** allow **RDP (3389)** — then, after deploy, tighten it: VM →
+     **Networking** → the RDP rule → set **Source** to **My IP address** (don't leave RDP
+     open to the whole internet — it gets brute-forced fast).
    - Check the licensing/eligibility confirmation box if shown.
 3. **Review + create** → **Create**. Wait ~2–3 minutes for deployment.
 4. Open the VM resource → copy its **Public IP address**.
@@ -83,8 +87,9 @@ az vm create `
   --public-ip-sku Standard `
   --nic-delete-option Delete --os-disk-delete-option Delete
 
-# --- ensure RDP is open ---
-az vm open-port -g $RG -n $VM --port 3389
+# --- open RDP ONLY to your current public IP (never 0.0.0.0/0 — RDP gets brute-forced) ---
+$MYIP = Invoke-RestMethod https://api.ipify.org
+az vm open-port -g $RG -n $VM --port 3389 --source-address-prefixes "$MYIP/32"
 
 # --- print the public IP to RDP into ---
 az vm show -d -g $RG -n $VM --query publicIps -o tsv
@@ -169,11 +174,13 @@ seeing it as `Exited (0)` in `docker compose ps` is **normal**.
 
 > **Fully unattended (no prompt):** set the password inline instead of being prompted —
 > ```powershell
-> $env:FIREMASTER_ADMIN_PASSWORD="<StrongPass>"
+> $env:FIREMASTER_ADMIN_PASSWORD='YourStrongPass'   # SINGLE quotes — see warning
 > docker compose run --rm -e FIREMASTER_ADMIN_PASSWORD backend uv run python -m app.setup
 > ```
-> Handy if you want the whole Azure test to run hands-off. (Use `uv run python …`, not bare
-> `python` — the latter misses the uv venv.)
+> ⚠️ **Use single quotes, not double.** PowerShell expands `$` inside double quotes, so a
+> password containing `$` (e.g. `Abc$$de`) is silently mangled and login later fails. Single
+> quotes — or the interactive prompt above — take it literally. (Also `uv run python …`, not
+> bare `python`, which misses the uv venv.)
 
 ---
 
@@ -238,5 +245,5 @@ az group delete -n firemaster-test-rg --yes --no-wait
   troubleshooting table: [CONTAINER_RUNBOOK.md](CONTAINER_RUNBOOK.md).
 - **Slow first build** → expected; subsequent `docker compose up` runs are cached. Prebuilt
   multi-arch images (Change 6, still open) would remove the build entirely.
-- **Can't RDP** → confirm the NSG allows port 3389 from your IP:
-  `az vm open-port -g firemaster-test-rg -n fm-win-test --port 3389`.
+- **Can't RDP** → the rule is locked to your IP, which may have changed. Re-open for your
+  current IP: `$MYIP = Invoke-RestMethod https://api.ipify.org; az vm open-port -g firemaster-test-rg -n fm-win-test --port 3389 --source-address-prefixes "$MYIP/32"`.
