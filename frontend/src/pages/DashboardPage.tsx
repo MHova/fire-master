@@ -4,6 +4,7 @@ import {
   useDashboardSummary,
   useNetWorthHistory,
   useTriggerSync,
+  useSyncStatus,
 } from "../api/queries";
 import { fetchJSON } from "../api/client";
 import LightweightChart from "../charts/LightweightChart";
@@ -117,6 +118,7 @@ export default function DashboardPage() {
   const { data: summary, isLoading } = useDashboardSummary();
   const { data: history } = useNetWorthHistory(range);
   const triggerSync = useTriggerSync();
+  const { data: syncStatus } = useSyncStatus();
   const [syncing, setSyncing] = useState(false);
   const queryClient = useQueryClient();
 
@@ -205,13 +207,19 @@ export default function DashboardPage() {
                 {new Date(summary.last_synced_at).toLocaleString()}
               </span>
             )}
-            <button
-              onClick={handleSync}
-              disabled={syncing || triggerSync.isPending}
-              className="px-3 py-1.5 text-xs bg-[var(--bg-secondary)] border border-[var(--border)] rounded text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--blue)] transition-colors disabled:opacity-50"
-            >
-              {syncing ? "Syncing..." : "Sync Now"}
-            </button>
+            {syncStatus?.demo_mode ? (
+              <span className="px-3 py-1.5 text-xs bg-[var(--bg-secondary)] border border-[var(--border)] rounded text-[var(--text-tertiary)]">
+                Demo data
+              </span>
+            ) : (
+              <button
+                onClick={handleSync}
+                disabled={syncing || triggerSync.isPending}
+                className="px-3 py-1.5 text-xs bg-[var(--bg-secondary)] border border-[var(--border)] rounded text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--blue)] transition-colors disabled:opacity-50"
+              >
+                {syncing ? "Syncing..." : "Sync Now"}
+              </button>
+            )}
           </div>
         </div>
 

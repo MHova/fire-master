@@ -54,6 +54,7 @@ export interface SyncStatus {
   transactions_synced: number;
   snapshots_synced: number;
   error_message: string | null;
+  demo_mode?: boolean;
 }
 
 export interface SyncTriggerResponse {

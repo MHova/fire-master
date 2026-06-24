@@ -12,6 +12,10 @@ demo persona first. Connect Monarch (~$8/month, free trial available) when you'r
 run on your real data. Demo rows are manual-source and coexist safely with a real sync — and
 your **first real sync clears them automatically** (set `AUTO_CLEAR_DEMO=false` to keep them).
 
+> **Running a locked demo?** Set `DEMO_MODE=true` and everything in this doc is hard-disabled —
+> Monarch sync never runs, the session is never loaded, and the instance is limited to the
+> seeded demo persona. Required for any shared or public demo.
+
 ## 1. One-time authentication
 
 ```bash

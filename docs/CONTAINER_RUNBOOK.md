@@ -183,6 +183,7 @@ taken — no file edits, just set the var.)
 | Old Python package after changing deps | The anonymous `.venv` volume persists across rebuilds and can hold stale deps | rebuild, then `docker compose up --build --renew-anon-volumes` (renews the anon `.venv` only; the named data volume is kept) |
 | Port already in use on `up` | Your native stack or sister project is running | remap with `BACKEND_HOST_PORT=…` etc., or stop the native app layer |
 | Demo data vanished after connecting Monarch | **Expected** — the first real sync auto-clears the demo persona (marker-scoped: only demo rows, real data untouched) | keep it with `AUTO_CLEAR_DEMO=false`; the FIRE config stays for you to rebuild on /config |
+| Need a demo that can NEVER pull real data (shared/public/scratch) | default install can sync if a Monarch session is present | `DEMO_MODE=true docker compose up` — hard-disables Monarch sync (the session is **never loaded**), hides the Sync button, and locks the app to seeded demo data. Mandatory for any hosted/public demo |
 | Edited a `.sh` file on Windows, container won't start | CRLF line endings | `.gitattributes` forces `*.sh` to LF; re-checkout the file |
 
 ### Useful inspection commands

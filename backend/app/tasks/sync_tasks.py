@@ -23,6 +23,12 @@ def _set_sync_status(status: dict):
 async def _run_monarch_sync_async(full_history: bool = False):
     """Async implementation of the Monarch sync."""
     settings = get_settings()
+    # Demo lock: a demo instance never connects to Monarch. Returning here means
+    # MonarchClient.connect()/load_session is never reached — no real data can be
+    # pulled even if a session file happens to be mounted. See DEMO_MODE in config.
+    if settings.DEMO_MODE:
+        logger.info("Monarch sync skipped: DEMO_MODE enabled (session not loaded).")
+        return
     engine = create_async_engine(settings.DATABASE_URL)
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
 

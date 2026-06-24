@@ -79,13 +79,17 @@ export default function Layout({ children }: { children: ReactNode }) {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
         <header className="h-14 border-b border-[var(--border)] bg-[var(--bg-secondary)] flex items-center justify-end px-6 gap-4">
-          {syncStatus && (
+          {syncStatus?.demo_mode ? (
+            <span className="text-xs px-2 py-0.5 rounded border border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--yellow)]">
+              Demo mode
+            </span>
+          ) : syncStatus ? (
             <span className="text-xs text-[var(--text-secondary)]">
               Sync: {syncStatus.status}
               {syncStatus.last_sync_at &&
                 ` \u00B7 ${new Date(syncStatus.last_sync_at).toLocaleString()}`}
             </span>
-          )}
+          ) : null}
         </header>
         <main className="flex-1 p-6 overflow-auto">{children}</main>
       </div>

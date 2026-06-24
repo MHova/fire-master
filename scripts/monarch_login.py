@@ -11,6 +11,9 @@ load_dotenv()
 
 
 async def main():
+    if os.environ.get("DEMO_MODE", "").strip().lower() == "true":
+        sys.exit("Refusing to log in: DEMO_MODE is enabled (this instance is demo-only).")
+
     session_file = os.environ.get("MONARCH_SESSION_FILE", ".monarch_session")
 
     mm = MonarchMoney()

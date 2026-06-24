@@ -10,6 +10,7 @@ class SyncStatusResponse(BaseModel):
     transactions_synced: int = 0
     snapshots_synced: int = 0
     error_message: str | None = None
+    demo_mode: bool = False
 
 
 class SyncTriggerResponse(BaseModel):

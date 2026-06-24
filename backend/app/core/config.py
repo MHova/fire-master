@@ -36,6 +36,10 @@ class Settings(BaseSettings):
 
     # App
     APP_ENV: str = "development"
+    # Demo lock: when true, Monarch sync is hard-disabled (the session is never
+    # loaded), the Sync button is hidden, and the instance is limited to seeded
+    # demo data. For local demo stacks and any future hosted public demo.
+    DEMO_MODE: bool = False
 
 
 @lru_cache
