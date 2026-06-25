@@ -13,18 +13,58 @@ argument is in [ARCHITECTURE.md](../ARCHITECTURE.md).
 
 ## Setup (one minute)
 
-1. Start the stack (`docker compose up`) and install
-   [Claude Code](https://docs.claude.com/en/docs/claude-code).
-2. Open a terminal **in this repo** and run `claude`. The checked-in [CLAUDE.md](../CLAUDE.md)
+Start the stack (`docker compose up`) and install
+[Claude Code](https://docs.claude.com/en/docs/claude-code). Then pick your interface:
+
+### Option A — VS Code (recommended)
+
+1. Install [VS Code](https://code.visualstudio.com/) if you don't have it, then install the
+   **Claude Code extension** from the VS Code marketplace.
+2. Open the FIREMaster repo folder in VS Code. The extension automatically reads
+   [CLAUDE.md](../CLAUDE.md), so it already knows the module map, the API surface, and the
+   data-layer gotchas.
+3. Open the Claude Code panel (click the Claude icon in the sidebar, or `Cmd+Shift+P` →
+   "Claude Code: Open"). The first time, it will ask you to authenticate with your
+   [claude.ai](https://claude.ai/) subscription (Pro or Max plan required). This gives you a
+   chat interface alongside your code, with clickable file links and inline report viewing.
+4. **Tip:** set VS Code to open markdown files in preview by default — reports and docs are
+   much easier to read rendered. Add this to your VS Code settings (`Cmd+,` → search
+   "editor associations" → add `*.md` → `vscode.markdown.preview.editor`), or add it
+   directly to `settings.json`:
+   ```json
+   "workbench.editorAssociations": { "*.md": "vscode.markdown.preview.editor" }
+   ```
+
+### Option B — Terminal
+
+1. Open a terminal **in this repo** and run `claude`. The checked-in [CLAUDE.md](../CLAUDE.md)
    already teaches it the module map, the API surface, and the data-layer gotchas (cents,
    real rates, displayBalance).
-3. First message of a session, tell it to authenticate and explore, e.g.:
+
+### First message
+
+Either way, start your first session by telling it to authenticate and explore, e.g.:
 
 > Get a token from POST /api/auth/login (username "admin", ask me for the password — don't
 > save it anywhere), then GET /api/fire/wealth-projection and orient yourself.
 
 The API is localhost-only and JWT-gated; the OpenAPI explorer at
 `http://localhost:8000/docs` is the same surface Claude discovers.
+
+## You don't need to read docs — Claude already has
+
+Once Claude Code is pointed at this project, it can read every doc, every source file, and
+every API endpoint itself. Stuck on something? Don't search the docs — just ask:
+
+- *"How do I enrich my accounts with FIRE roles?"*
+- *"Something went wrong with my sync — diagnose and fix it."*
+- *"Walk me through setting up my first scenario."*
+- *"What does the Retirement page show and how do I read it?"*
+- *"Explain the properties module — what does it do and how do I set it up?"*
+
+Claude reads the codebase, understands the architecture, and can both explain and act. This
+is the workflow that replaces manuals — you talk to your tool and it talks back with full
+context.
 
 ## The surface area
 
@@ -42,7 +82,7 @@ The API is localhost-only and JWT-gated; the OpenAPI explorer at
 | `/api/cashflow/*` | runway, income sources, future events |
 | `/api/tax/*` | drawdown tax modeling |
 
-Money is integer **cents** everywhere; projection rates are **real** (after-inflation).
+Money is integer **cents** everywhere; all projections are in **today's dollars**.
 Claude knows this from CLAUDE.md — but it's worth knowing yourself when you read its work.
 
 ## Prompts that earn their keep

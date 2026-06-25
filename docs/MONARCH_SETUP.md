@@ -7,9 +7,10 @@ FIREMaster owns analysis (projections, scenarios, property P&L, the AI-analyst l
 two-layer split means your bank credentials live in exactly one place — Monarch — and
 FIREMaster only ever sees read-only financial data on your own machine.
 
-You don't need Monarch to *evaluate* FIREMaster — run `scripts/seed_demo.py` and explore the
-demo persona first. Connect Monarch (~$8/month, free trial available) when you're ready to
-run on your real data. Demo rows are manual-source and coexist safely with a real sync — and
+You don't need Monarch to *evaluate* FIREMaster — the demo persona loads automatically on
+first run, so the app is alive the moment you log in. Connect Monarch (~$8/month, free trial
+available) when you're ready to run on your real data. Demo rows are manual-source and
+coexist safely with a real sync — and
 your **first real sync clears them automatically** (set `AUTO_CLEAR_DEMO=false` to keep them).
 
 > **Running a locked demo?** Set `DEMO_MODE=true` and everything in this doc is hard-disabled —

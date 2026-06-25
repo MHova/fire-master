@@ -1,6 +1,6 @@
 # FIREMaster
 
-A self-hosted FIRE planning cockpit. Your real accounts, your real spending, your real
+A self-hosted FIRE (Financial Independence Retire Early) planning cockpit. Your real accounts, your real spending, your real
 retirement math — running on your own machine, with an AI analyst that can read all of it.
 
 FIREMaster answers the questions generic retirement calculators can't:
@@ -44,14 +44,17 @@ need Monarch to try the app:
 - **Day one (no Monarch):** seed the built-in demo persona and every page renders alive —
   a 52-year-old fresh off a layoff, three properties, a SEPP bridge plan, and a cash crunch
   the projections catch before it happens.
-- **When you're ready:** connect your Monarch account and sync your real data. Demo rows are
-  manual-source, so they survive alongside a real sync until you remove them with one command.
+- **When you're ready:** connect your Monarch account and sync your real data. Your first
+  sync automatically clears the demo persona — no manual cleanup needed.
 
 ## Quick start
 
 Prerequisites: **[Docker Desktop](https://www.docker.com/products/docker-desktop/)** and the
-**[GitHub CLI (`gh`)](https://cli.github.com/)** — that's it. No Python, Node, or shell tooling
-on your machine. Works on macOS, Windows, and Linux. (On Windows, Docker Desktop installs WSL2
+**[GitHub CLI (`gh`)](https://cli.github.com/)**. For the full AI-analyst experience (the
+reason this app exists), add **[Claude Code](https://claude.com/claude-code)** with a
+[Pro or Max](https://claude.ai/) subscription — see
+[docs/CLAUDE_CODE_USAGE.md](docs/CLAUDE_CODE_USAGE.md). No Python, Node, or shell tooling on
+your machine. Works on macOS, Windows, and Linux. (On Windows, Docker Desktop installs WSL2
 itself — one reboot, then the commands below.)
 
 ```bash
@@ -118,12 +121,13 @@ Both paths share the same database, so you can switch between them freely.
 | Tracker | Monthly non-property spending vs. target, category drill-down |
 | Transactions | Full ledger browser: filter, classify, assign to properties |
 | Properties | Per-property P&L from real transactions (rules + overrides + Monarch tags) |
-| Tax Planning | Effective tax modeling for retirement drawdown |
+| Tax Planning | Effective tax modeling for retirement drawdown *(early development — disabled in current release)* |
 
 Under the hood: Python 3.12 / FastAPI / SQLAlchemy 2.0 async / PostgreSQL 16 / Celery + Redis,
-React 18 + TypeScript / Vite / Tailwind. All money is integer cents; all projection rates are
-real (after-inflation). The test suite (`cd backend && uv run pytest`) covers the projection
-engine, tax math, scenario merging, and property classification.
+React 18 + TypeScript / Vite / Tailwind. All money is integer cents; all projections are in
+today's dollars. The test suite covers the projection engine, tax math, scenario merging, and property
+classification (`docker compose exec backend uv run pytest`, or `cd backend && uv run pytest`
+on the native path).
 
 ## Troubleshooting
 
@@ -144,8 +148,7 @@ engine, tax math, scenario merging, and property classification.
 
 ## Why this exists
 
-I spent twenty-five years building technology for movies and games — the kind of career you
-don't plan an early exit from, until a layoff plans it for you. At 53, with a household that
+I spent twenty-five years building technology for movies, e-commerce, and games — the kind of career you don't plan an early exit from, until a layoff plans it for you. At 53, with a household that
 runs on real estate as much as index funds, every retirement calculator I tried gave me a
 polite shrug: none of them could model a severance runway, a 72(t) bridge, a rental that pays
 for itself, or the one question that actually mattered — *which year does cash go negative,

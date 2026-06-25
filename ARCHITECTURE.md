@@ -20,65 +20,65 @@ FIREMaster is a two-interface application. Each interface does what it's best at
 Neither is the "real" UI. They're complementary. The backend API layer is the shared abstraction boundary that both consume.
 
 ```
-                        ┌─────────┐
-                        │   You   │
-                        └────┬────┘
-                   ┌─────────┴─────────┐
-                   │                    │
-                   ▼                    ▼
-        ┌─────────────────┐  ┌─────────────────┐
-        │    Frontend      │  │   Claude Code    │
-        │    (React)       │  │   (Opus 4.6)     │
-        │                  │  │                   │
-        │  ● Dashboards    │  │  ● Deep analysis  │
-        │  ● Charts        │  │  ● Scenario runs  │
-        │  ● Data entry    │  │  ● Tax strategy   │
-        │  ● Enrichment    │  │  ● Ad-hoc queries  │
-        │    forms         │  │  ● Planning        │
-        │                  │  │  ● Code + scripts  │
-        │  DISPLAY +       │  │                   │
-        │  DATA ENTRY      │  │  ANALYSIS +       │
-        │                  │  │  PLANNING          │
-        └────────┬─────────┘  └────────┬──────────┘
-                 │                      │
-                 │    REST API layer     │
-                 └──────────┬───────────┘
-                            │
-              ┌─────────────▼─────────────┐
-              │      Backend (FastAPI)     │
-              │                            │
-              │  Engines:                  │
-              │   net_worth  spending      │
-              │   fire_proj  tax_engine    │
-              │   monte_carlo  asset_hub   │
-              │                            │
-              │  Ingestion:                │
-              │   monarch_sync             │
-              │   category_sync            │
-              │                            │
-              │  Tasks:                    │
-              │   celery (4hr sync,        │
-              │   daily snapshot)           │
-              ├────────────────────────────┤
-              │    PostgreSQL + Redis       │
-              │                            │
-              │  Accounts + enrichment     │
-              │  Transactions              │
-              │  Balance snapshots         │
-              │  FIRE config + income      │
-              │  Goals + tax config        │
-              └────────────────────────────┘
+                             ┌─────────┐
+                             │   You   │
+                             └────┬────┘
+                       ┌──────────┴──────────┐
+                       │                     │
+                       ▼                     ▼
+        ┌────────────────────────┐  ┌────────────────────────┐
+        │  Frontend              │  │  Claude Code           │
+        │  (React)               │  │  (Opus 4.6)            │
+        │                        │  │                        │
+        │  ● Dashboards          │  │  ● Deep analysis       │
+        │  ● Charts              │  │  ● Scenario runs       │
+        │  ● Data entry          │  │  ● Tax strategy        │
+        │  ● Enrichment forms    │  │  ● Ad-hoc queries      │
+        │                        │  │  ● Planning            │
+        │  DISPLAY +             │  │  ● Code + scripts      │
+        │  DATA ENTRY            │  │                        │
+        │                        │  │  ANALYSIS +            │
+        │                        │  │  PLANNING              │
+        └───────────┬────────────┘  └───────────┬────────────┘
+                    │                           │
+                    │       REST API layer      │
+                    └─────────────┬─────────────┘
+                                  │
+              ┌───────────────────▼──────────────────┐
+              │  Backend (FastAPI)                   │
+              │                                      │
+              │  Engines:                            │
+              │   net_worth    spending              │
+              │   fire_proj    tax_engine            │
+              │   monte_carlo  asset_hub             │
+              │                                      │
+              │  Ingestion:                          │
+              │   monarch_sync                       │
+              │   category_sync                      │
+              │                                      │
+              │  Tasks:                              │
+              │   celery (4hr sync,                  │
+              │   daily snapshot)                    │
+              ├──────────────────────────────────────┤
+              │  PostgreSQL + Redis                  │
+              │                                      │
+              │  Accounts + enrichment               │
+              │  Transactions                        │
+              │  Balance snapshots                   │
+              │  FIRE config + income                │
+              │  Goals + tax config                  │
+              └──────────────────────────────────────┘
 ```
 
 ### The workflow in practice
 
-1. **You enter enrichment data in the frontend** — notes, FIRE roles, strategies, tags, targets for each account. Configure FIRE assumptions (retirement age, SWR, life expectancy, income sources). This is the knowledge base.
+1. **You enter enrichment data in the frontend** — notes, FIRE roles, strategies, tags, targets for each account. Configure FIRE assumptions (retirement age, safe withdrawal rate, life expectancy, income sources). This is the knowledge base.
 
 2. **The backend stores and computes** — Monarch syncs raw financial data (accounts, transactions, balances). Engines compute net worth, spending analysis, FIRE projections, scenarios, readiness scores. All exposed via rich REST APIs.
 
 3. **Claude Code queries the backend for deep analysis** — in conversation, Claude Code calls the APIs (`/api/fire/metrics`, `/api/fire/scenario`, `/api/tax/roth-conversion-plan`, etc.), reads the enrichment data, runs scenarios, and provides personalized, data-grounded advice. It can also write new scripts, run ad-hoc SQL, or build one-off analysis tools — things no predefined chat UI could do.
 
-4. **The frontend displays results** — dashboards, charts, projections. The lifetime projection chart, the Monte Carlo fan chart, the FIRE countdown, the readiness score. Visual feedback, not the analysis itself.
+4. **The frontend displays results** — dashboards, charts, projections. The lifetime projection chart, the FIRE countdown, the readiness score. Visual feedback, not the analysis itself.
 
 ### What makes this different from a normal app
 
@@ -123,8 +123,8 @@ Mint, YNAB, Personal Capital — all consumer tools optimized for mass market. F
 
 ## Key Design Decisions
 
-### Draw-Down-to-Zero FIRE Rule
-Instead of the traditional 4% perpetual rule (which preserves principal forever, leaving millions behind), FIREMaster uses a draw-down-to-target-legacy calculation:
+### FIRE Number: Draw-Down-to-Legacy
+The traditional 4% rule assumes you never touch the principal — which means you need a much larger nest egg and may leave millions unspent. FIREMaster's FIRE number (shown on the Retirement page, powered by `/api/fire/number`) uses a draw-down-to-target-legacy calculation instead:
 
 ```
 PV = W × [(1 - (1+r)^(-n)) / r] + legacy × (1+r)^(-n)
@@ -132,10 +132,10 @@ PV = W × [(1 - (1+r)^(-n)) / r] + legacy × (1+r)^(-n)
 W = net annual withdrawal (spending - post-retirement income)
 r = real return rate (nominal - inflation)
 n = years in retirement (life_expectancy - retirement_age)
-legacy = target amount to leave behind ($0 = spend it all)
+legacy = target amount to leave behind (configurable — default $0)
 ```
 
-Philosophy: live a rich life, retire early, spend it all. The traditional rule is available for comparison but not the default.
+Philosophy: live a rich life, retire early, and choose how much you leave behind. Set `legacy` to $0 and the math tells you the minimum you need to fund your exact lifestyle through your life expectancy. Set it to $500K and it plans to leave that behind. Either way, the number is smaller and more realistic than the perpetual-principal approach.
 
 ### Account Enrichment as Knowledge Base
 Every Monarch account can be annotated with:
@@ -153,15 +153,15 @@ Every new capability starts as a backend engine with API endpoints. The frontend
 
 ## The Compounding Effect
 
-Each phase builds on the previous:
-- **Phase 1** (Monarch sync) → raw financial data
-- **Phase 2** (Spending engine) → spending patterns and savings rate
-- **Phase 3** (AI advisor) → proved the concept, revealed its own limitation
-- **Phase 4** (Account enrichment) → personal knowledge attached to every account
-- **Phase 5** (FIRE projections) → lifetime modeling using all the data + knowledge
-- **Phase 6** (Tax engine) → tax-aware optimization using account types + enrichment
+Each layer of the system makes the next one smarter:
 
-The enrichment data from Phase 4 makes Phase 5 projections smarter. Phase 5's scenario engine makes Phase 6's tax optimization possible. And Claude Code, sitting in the middle, gets more powerful with every piece of data you add.
+- **Monarch sync** brings in raw financial data — accounts, transactions, balances.
+- **Spending analysis** turns transactions into patterns and savings rates.
+- **Account enrichment** attaches your personal knowledge — FIRE roles, strategies, notes — to every account.
+- **FIRE projections** use all of the above to model your lifetime, month by month.
+- **Scenarios** let you compare futures side by side, using the same enriched data.
+
+And Claude Code, sitting in the middle, gets more powerful with every piece of data you add. The more you annotate your accounts, the deeper the analysis can go.
 
 This is a flywheel: more data → better analysis → better decisions → more confidence in the tool → more data entered.
 

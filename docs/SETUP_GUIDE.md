@@ -9,15 +9,26 @@ post-install configuration steps.
 
 | Tool | Why | Check |
 |---|---|---|
-| Docker Desktop | runs the **whole** stack in containers — Postgres 16, Redis, Python 3.12, Node | `docker compose version` |
+| [Docker Desktop](https://www.docker.com/products/docker-desktop/) | runs the **whole** stack in containers — Postgres 16, Redis, Python 3.12, Node | `docker compose version` |
 | [GitHub CLI (`gh`)](https://cli.github.com/) | authenticate + clone this private repo | `gh --version` |
 
 That's it — **no Python, uv, Node, or shell tooling on your machine.** They all live inside
-the containers. (`git` ships with macOS and is bundled with the GitHub CLI on Windows.)
+the containers. (`git` ships with macOS; on Windows it's installed separately — see below.)
 
-- **macOS / Linux**: install Docker Desktop and `gh` (`brew install gh`), and you're done.
-- **Windows**: install Docker Desktop — its installer sets up WSL2 for you (**one reboot**).
-  Install `gh` with `winget install --id GitHub.cli -e`. You do **not** install or manage an
+- **macOS / Linux**: install [Homebrew](https://brew.sh/) if you don't have it yet
+  (`/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`),
+  then:
+  ```bash
+  brew install --cask docker    # Docker Desktop
+  brew install gh               # GitHub CLI
+  ```
+- **Windows**: open PowerShell and run all three:
+  ```powershell
+  winget install --id Docker.DockerDesktop -e --accept-package-agreements --accept-source-agreements
+  winget install --id Git.Git -e --accept-package-agreements --accept-source-agreements
+  winget install --id GitHub.cli -e --accept-package-agreements --accept-source-agreements
+  ```
+  Docker Desktop sets up WSL2 for you (**one reboot**). You do **not** install or manage an
   Ubuntu distro, and you never touch bash.
 - **Prefer to develop natively** (run the backend/frontend on the host for fast hot-reload)?
   That path needs `uv` + Node 18+ and a bash shell — see the **Contributor / native dev**
@@ -59,8 +70,9 @@ First run **builds the images** (a few minutes) and pulls Postgres/Redis. Then, 
 3. the **backend** (FastAPI :8000), **Celery worker** + **beat** (background sync jobs), and the
    **frontend** (Vite :5173) start.
 
-Leave this terminal running; `Ctrl+C` stops everything. To run detached instead, use
-`docker compose up -d`.
+Leave this terminal running; `Ctrl+C` stops everything. Once the stack is up, you can also
+press **d** in the terminal menu to detach (keeps containers running, frees your terminal).
+Or start detached from the beginning with `docker compose up -d`.
 
 Sanity checks: `http://localhost:8000/api/health` returns ok, `http://localhost:5173` shows the
 login screen. (If `:5432`/`:6379`/`:8000`/`:5173` are already taken, set e.g.
@@ -69,8 +81,8 @@ login screen. (If `:5432`/`:6379`/`:8000`/`:5173` are already taken, set e.g.
 ## 4. Demo data (loaded automatically)
 
 On a **fresh** database the **demo persona** is seeded automatically by the migrate step, so the
-app is alive the moment you log in — there's nothing to run. (To start blank instead, bring the
-stack up with `SEED_DEMO=false docker compose up`.) Add the example what-if scenarios whenever
+app is alive the moment you log in — there's nothing to run. (To start blank instead, set the environment variable `SEED_DEMO=false` before running
+`docker compose up`.) Add the example what-if scenarios whenever
 you like, in a second terminal:
 
 ```bash
@@ -87,7 +99,7 @@ what catching a bridge problem *years in advance* looks like.
 Demo mechanics worth knowing:
 
 - **Safe**: it refuses to run against a database that already has Monarch-synced data.
-- **Idempotent**: re-running re-anchors all dates to today and updates in place.
+- **Safe to re-run**: running it again just refreshes the dates to today and updates in place — no duplicates.
 - **Removable**: `docker compose exec backend uv run python ../scripts/seed_demo.py --remove`
   deletes every demo row. Demo rows are manual-source, so they coexist safely with a later real
   Monarch sync until you remove them.
@@ -118,7 +130,8 @@ Everything the projections assume lives in one place: **Settings → Plan** (bas
 
 - Base config: date of birth, target spending, Social Security, healthcare, withdrawal
   strategy, and the `custom_assumptions` blocks (SEPP plan, property sales, tax profile,
-  projection rates — all rates are **real**, after inflation).
+  projection rates — all projections are in **today's dollars**, so $80K/year
+  spending stays at $80K purchasing power throughout).
 - Scenarios store only their *differences* from the base, so editing the base updates every
   scenario that doesn't override that field.
 - Property sales are modeled with `property_sales` entries (any sale month, dynamic value,
