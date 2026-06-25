@@ -49,12 +49,14 @@ need Monarch to try the app:
 
 ## Quick start
 
-Prerequisites: **[Docker Desktop](https://www.docker.com/products/docker-desktop/) and git** —
-that's it. No Python, Node, or shell tooling on your machine. Works on macOS, Windows, and
-Linux. (On Windows, Docker Desktop installs WSL2 itself — one reboot, then the commands below.)
+Prerequisites: **[Docker Desktop](https://www.docker.com/products/docker-desktop/)** and the
+**[GitHub CLI (`gh`)](https://cli.github.com/)** — that's it. No Python, Node, or shell tooling
+on your machine. Works on macOS, Windows, and Linux. (On Windows, Docker Desktop installs WSL2
+itself — one reboot, then the commands below.)
 
 ```bash
-git clone <this-repo> firemaster && cd firemaster
+gh auth login                                         # GitHub.com → HTTPS → browser (paste the code shown in terminal)
+gh repo clone gdb-mtx/fire-master firemaster && cd firemaster
 
 docker compose run --rm backend uv run python -m app.setup   # one-time: JWT secret + your admin password
 docker compose up                                     # builds + starts everything; migrations + demo data load automatically

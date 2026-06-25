@@ -10,15 +10,15 @@ post-install configuration steps.
 | Tool | Why | Check |
 |---|---|---|
 | Docker Desktop | runs the **whole** stack in containers — Postgres 16, Redis, Python 3.12, Node | `docker compose version` |
-| git | clone + updates | `git --version` |
+| [GitHub CLI (`gh`)](https://cli.github.com/) | authenticate + clone this private repo | `gh --version` |
 
 That's it — **no Python, uv, Node, or shell tooling on your machine.** They all live inside
-the containers.
+the containers. (`git` ships with macOS and is bundled with the GitHub CLI on Windows.)
 
-- **macOS / Linux**: install Docker Desktop and you're done.
-- **Windows**: install Docker Desktop — its installer sets up WSL2 for you (**one reboot**),
-  then everything below runs the same as on macOS. You do **not** install or manage an Ubuntu
-  distro, and you never touch bash.
+- **macOS / Linux**: install Docker Desktop and `gh` (`brew install gh`), and you're done.
+- **Windows**: install Docker Desktop — its installer sets up WSL2 for you (**one reboot**).
+  Install `gh` with `winget install --id GitHub.cli -e`. You do **not** install or manage an
+  Ubuntu distro, and you never touch bash.
 - **Prefer to develop natively** (run the backend/frontend on the host for fast hot-reload)?
   That path needs `uv` + Node 18+ and a bash shell — see the **Contributor / native dev**
   section in the [README](../README.md#contributor--native-dev-optional). This guide uses the
@@ -27,7 +27,10 @@ the containers.
 ## 2. Clone and configure
 
 ```bash
-git clone <this-repo> firemaster && cd firemaster
+gh auth login            # choose: GitHub.com → HTTPS → Login with a web browser
+                         # ↑ It prints a one-time code IN THE TERMINAL — paste that code
+                         #   into the browser prompt (it is NOT in any GitHub app).
+gh repo clone gdb-mtx/fire-master firemaster && cd firemaster
 docker compose run --rm backend uv run python -m app.setup
 ```
 
