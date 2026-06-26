@@ -10,14 +10,24 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app/backend
 
+# NOTE: this image is built with the REPO ROOT as the build context (see
+# docker-compose.yml and .github/workflows/docker-images.yml), NOT ./backend. That lets
+# the image bake in the repo-root scripts/ + config/ dirs, which the standalone
+# (no-bind-mount) docker-compose.public.yml needs for its first-run demo seed.
+# A root .dockerignore keeps the rest of the repo (frontend, .git, venvs, secrets) out.
+
 # Copy dependency files first for layer caching
-COPY pyproject.toml uv.lock* ./
+COPY backend/pyproject.toml backend/uv.lock* ./
 
 # Install dependencies
 RUN uv sync --frozen --no-dev 2>/dev/null || uv sync
 
-# Copy application code
-COPY . .
+# Application code into /app/backend, plus the seed scripts and config the demo seed
+# reads. scripts/seed_*.py expect <repo>/backend as a sibling dir — here that's
+# /app/backend, so `python ../scripts/seed_demo.py` from WORKDIR resolves correctly.
+COPY backend/ ./
+COPY scripts /app/scripts
+COPY config /app/config
 
 EXPOSE 8000
 

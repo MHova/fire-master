@@ -32,8 +32,13 @@ services:
   # finish (service_completed_successfully) so the schema always exists before they run.
   # Seeing "migrate Exited (0)" in `docker compose ps` is NORMAL.
   migrate:
+    # Prebuilt image (pulled by `docker compose up`); `build:` is the dev/offline fallback
+    # (`up --build` forces a local build). Context = repo root so the image bakes in
+    # scripts/ + config/ for the standalone seed — see backend/Dockerfile + the runbook.
+    image: ghcr.io/gdb-mtx/firemaster-backend:latest
     build:
-      context: ./backend
+      context: .
+      dockerfile: backend/Dockerfile
     volumes:
       - ./backend:/app/backend
       - /app/backend/.venv
@@ -54,8 +59,13 @@ services:
     command: ["sh", "-c", "uv run alembic upgrade head && (uv run python ../scripts/seed_demo.py --if-empty || true)"]
 
   backend:
+    # Prebuilt image (pulled by `docker compose up`); `build:` is the dev/offline fallback
+    # (`up --build` forces a local build). Context = repo root so the image bakes in
+    # scripts/ + config/ for the standalone seed — see backend/Dockerfile + the runbook.
+    image: ghcr.io/gdb-mtx/firemaster-backend:latest
     build:
-      context: ./backend
+      context: .
+      dockerfile: backend/Dockerfile
     ports:
       - "${BACKEND_HOST_PORT:-8000}:8000"
     volumes:
@@ -86,8 +96,13 @@ services:
     command: uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   celery-worker:
+    # Prebuilt image (pulled by `docker compose up`); `build:` is the dev/offline fallback
+    # (`up --build` forces a local build). Context = repo root so the image bakes in
+    # scripts/ + config/ for the standalone seed — see backend/Dockerfile + the runbook.
+    image: ghcr.io/gdb-mtx/firemaster-backend:latest
     build:
-      context: ./backend
+      context: .
+      dockerfile: backend/Dockerfile
     volumes:
       - ./backend:/app/backend
       - /app/backend/.venv          # anon volume: shield the image's Linux venv from the host mount
@@ -108,8 +123,13 @@ services:
     command: uv run celery -A app.tasks.celery_app worker --loglevel=info -I app.tasks.sync_tasks
 
   celery-beat:
+    # Prebuilt image (pulled by `docker compose up`); `build:` is the dev/offline fallback
+    # (`up --build` forces a local build). Context = repo root so the image bakes in
+    # scripts/ + config/ for the standalone seed — see backend/Dockerfile + the runbook.
+    image: ghcr.io/gdb-mtx/firemaster-backend:latest
     build:
-      context: ./backend
+      context: .
+      dockerfile: backend/Dockerfile
     volumes:
       - ./backend:/app/backend
       - /app/backend/.venv          # anon volume: shield the image's Linux venv from the host mount
@@ -129,6 +149,8 @@ services:
     command: uv run celery -A app.tasks.celery_app beat --loglevel=info
 
   frontend:
+    # Prebuilt image (pulled by `docker compose up`); `build:` is the dev/offline fallback.
+    image: ghcr.io/gdb-mtx/firemaster-frontend:latest
     build:
       context: ./frontend
     ports:

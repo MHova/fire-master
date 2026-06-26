@@ -62,14 +62,15 @@ gh auth login                                         # GitHub.com → HTTPS →
 gh repo clone gdb-mtx/fire-master firemaster && cd firemaster
 
 docker compose run --rm backend uv run python -m app.setup   # one-time: JWT secret + your admin password
-docker compose up                                     # builds + starts everything; migrations + demo data load automatically
+docker compose up                                     # pulls prebuilt images + starts everything; migrations + demo data load automatically
 ```
 
 Open **http://localhost:5173** and log in as `admin` with the password you chose — the **demo
 persona is already loaded**, so every page (Dashboard, Retirement, Runway, Config) is alive on
 first launch.
 
-> **First run builds images and can take a few minutes**; subsequent `docker compose up` is fast.
+> **First run pulls prebuilt multi-arch images from GHCR (~30–60s)**; subsequent `docker compose up` is faster still.
+> (No prebuilt image yet, or offline? `docker compose up --build` builds locally instead.) To update later: `docker compose pull && docker compose up -d`.
 > A `migrate` container that shows `Exited (0)` is normal — it applied migrations + seeded the demo, then quit.
 > If `:5432`/`:6379`/`:8000`/`:5173` are already taken, set e.g.
 > `BACKEND_HOST_PORT=8001 FRONTEND_HOST_PORT=5174` before the command. Operational details,

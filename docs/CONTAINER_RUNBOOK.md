@@ -144,11 +144,57 @@ docker compose up            # rebuilds the world; data still there
 
 ## Still open (future, not blocking)
 
-- **Multi-arch prebuilt images:** build amd64 + arm64 images in CI and push to GHCR so
-  `docker compose pull` skips the local build (faster first run, no architecture surprises).
+- ~~**Multi-arch prebuilt images:**~~ **Done** (Jun 2026) — Phase 1 of `strategy/TIERS_PLAN.md`
+  (private repo). `.github/workflows/docker-images.yml` builds amd64 + arm64 backend/frontend
+  images and pushes them to GHCR on push-to-main (path-filtered) + manual dispatch. Both
+  `docker-compose.yml` services now carry an `image:` alongside `build:`, so `docker compose up`
+  **pulls** (`docker compose pull` to refresh) and `up --build` / offline falls back to a local
+  build. See "Prebuilt images" below for the image-build restructure and the standalone compose.
 - ~~**Windows + amd64 acceptance test:**~~ **Done** (Jun 2026). Validated on Azure
   `Standard_D4s_v7` / Windows Server 2025: Docker Desktop + WSL2 nested virt, amd64 images,
   demo auto-seed, scenarios — all passing. No bash/uv/node on the host.
+
+---
+
+## Prebuilt images (GHCR) and the standalone compose
+
+> Phase 1 + the Phase 2 compose file of `strategy/TIERS_PLAN.md` (private repo). The point:
+> decouple *shipping the product* from *shipping the code* — users pull images, they don't clone.
+
+### The workflow — `.github/workflows/docker-images.yml`
+- Two parallel jobs (backend, frontend) → `ghcr.io/gdb-mtx/firemaster-backend` and
+  `…/firemaster-frontend`, each multi-arch (`linux/amd64` + `linux/arm64`).
+- Tags: `latest` (default branch only), `sha-<7char>`, `YYYY.MM.DD`.
+- Trigger: push to `main` (path-filtered to `backend/`, `frontend/`, `scripts/`, `config/`,
+  the compose file, the workflow) + manual `workflow_dispatch`. Auth is the built-in
+  `GITHUB_TOKEN` (needs `packages: write`) — no PAT.
+- **One-time, post-first-run (manual — CI can't do these):** make BOTH GHCR packages **public**
+  (GitHub profile → Packages → each → Settings → visibility → Public) so pulls need no login.
+
+### Image-build restructure (backend only)
+The backend image's build context is now the **repo root**, not `./backend`
+(`build: { context: ., dockerfile: backend/Dockerfile }`; the workflow matches). Why: the
+standalone compose can't bind-mount `scripts/` + `config/`, so the demo first-run seed
+(`../scripts/seed_demo.py`) would have nothing to run. The Dockerfile now `COPY`s `backend/`,
+`scripts`, and `config` into the image; a new **root `.dockerignore`** keeps everything else
+(frontend, `.git`, venvs, **secrets**) out of the larger context. The dev compose still
+bind-mounts `./scripts` + `./config` over the baked copies, so native edit-reload is unchanged.
+- **Verify the bake:** `docker build -f backend/Dockerfile -t fm-test . && docker run --rm
+  fm-test ls /app/scripts /app/config` → the seed scripts + config files are listed.
+- **Gotcha:** never let `backend/.env` into the image — the root `.dockerignore` excludes
+  `**/.env`; if you ever see login break on a *pulled* image, confirm that exclusion held.
+
+### Standalone compose — `docker-compose.public.yml`
+The file shipped in the install kit (firemaster.io): GHCR images only, **no `build:`**, **no
+source bind-mounts**, no `scripts/`/`config/` on disk (they're in the image). Run it with
+`-f docker-compose.public.yml`. Differences from the dev compose worth knowing:
+- **`.env` is a single-file bind mount** (`./backend/.env:/app/backend/.env`), not `env_file`
+  (the interpolation bug — see the troubleshooting table). A bind mount of a **non-existent**
+  host file is created as a *directory*, which breaks `app.setup`, so the kit must ship an
+  empty `backend/.env` placeholder that the setup step fills in.
+- **No Monarch persistence** (no `.monarch_session` volume): the free tier is demo-only; live
+  sync is the paid gate (Phase 3, not yet built).
+- Pull/update: `docker compose -f docker-compose.public.yml pull && … up -d`.
 
 ---
 
