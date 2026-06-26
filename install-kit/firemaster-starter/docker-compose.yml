@@ -1,31 +1,20 @@
-# Standalone (no-clone) compose for the free/paid tiers — Phase 2 of strategy/TIERS_PLAN.md.
+# FIREMaster — starter compose. Runs the whole app from prebuilt images. No source code,
+# no git, no GitHub account needed. See GET_STARTED.md for the full walkthrough.
 #
-# This is the file shipped in the install kit (firemaster.io), NOT the dev compose. It pulls
-# the prebuilt GHCR images and runs the whole stack with NO source-code checkout: no `build:`
-# directives, no Dockerfiles, no scripts/ or config/ on disk (they're baked into the backend
-# image). The only thing on the user's machine is this file plus a backend/.env.
+# First run:
+#   1. docker compose run --rm --no-deps backend uv run python -m app.setup   (sets your admin password)
+#      (--no-deps: setup only writes backend/.env, so it doesn't need postgres/redis running)
+#   2. docker compose up                                            (starts everything)
+#   3. open http://localhost:5173                                   (log in — the demo is live)
 #
-# First-run flow (see the install-kit guide):
-#   1. docker compose -f docker-compose.public.yml run --rm --no-deps backend uv run python -m app.setup
-#        -> writes backend/.env (JWT secret + admin password hash). --no-deps: setup only writes the
-#           file, so don't start postgres/redis (avoids a port clash before the user even begins).
-#   2. docker compose -f docker-compose.public.yml up
-#        -> pulls images (~30-60s), migrates, auto-seeds the demo, starts everything
-#   3. open http://localhost:5173
+# Update later:   docker compose pull && docker compose up -d
+# Stop:           docker compose down            (your data is kept)
 #
-# Staying current:  docker compose -f docker-compose.public.yml pull && \
-#                   docker compose -f docker-compose.public.yml up -d
+# Do NOT delete the backend/.env file that ships in this folder — the setup step (1) fills it in.
+# (It must exist as a file before first run; that's why an empty placeholder is included.)
 #
-# IMPORTANT — the .env mount:
-#   The four backend services bind-mount the single file ./backend/.env into the container
-#   (NOT an `env_file:` — Compose interpolates env_file values and strips the `$` out of the
-#   bcrypt hash, breaking login; the app reads the mounted file directly via pydantic). A
-#   Docker bind mount of a path that does NOT exist on the host is created as a *directory*,
-#   which breaks `app.setup`. So the install kit must ship an (empty) backend/.env placeholder,
-#   and the setup step in (1) above fills it in. Do not delete the placeholder.
-#
-# Monarch sync is intentionally NOT wired up here (no .monarch_session persistence): the free
-# tier is demo-only. Live Monarch sync is the paid upgrade gate (Phase 3 of the plan).
+# This is the free/demo tier: it runs on demo data only. Connecting your own accounts
+# (Monarch sync) is a paid upgrade and is intentionally not enabled here.
 
 services:
   postgres:

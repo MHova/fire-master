@@ -20,6 +20,11 @@ frontend/dist/
 .env
 .env.local
 .monarch_session
+# ...except the install-kit placeholder (comments only, no secrets) — it MUST ship in the kit
+!install-kit/firemaster-starter/backend/.env
+
+# Install kit: track the source folder, NOT the regenerable zip artifact
+install-kit/*.zip
 
 # Personal data — never tracked (copy config/properties.example.json to start)
 config/properties.json
