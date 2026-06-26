@@ -1,0 +1,93 @@
+name: Build & Push Docker Images
+
+# Builds multi-arch (linux/amd64 + linux/arm64) images for the backend and frontend
+# and pushes them to GHCR, so users `docker compose pull` (~30-60s) instead of building
+# locally (~3-5 min) and never hit architecture surprises. This is Phase 1 of the
+# distribution-tiers plan (strategy/TIERS_PLAN.md) and the technical foundation for the
+# free tier — public images need no GitHub account to pull.
+#
+# Post-merge one-time steps (the workflow CANNOT do these — they're account settings):
+#   1. Watch the first run at github.com/gdb-mtx/fire-master/actions
+#   2. Make BOTH GHCR packages public: GitHub profile -> Packages -> each package ->
+#      Settings -> Change visibility -> Public (enables unauthenticated pulls)
+#   3. Test a fresh checkout + `docker compose up` — verify it PULLS, not builds.
+
+on:
+  push:
+    branches: [main]
+    # Only rebuild when something that lands in an image (or this workflow) changes.
+    # scripts/ + config/ are listed because they are now baked into the backend image.
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'scripts/**'
+      - 'config/**'
+      - 'docker-compose.yml'
+      - '.github/workflows/docker-images.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  packages: write   # required for docker/login-action to push to GHCR via GITHUB_TOKEN
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # Two parallel jobs, one per image. fail-fast: false so a frontend failure doesn't
+    # cancel an in-flight backend build (and vice versa).
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The backend build context is the REPO ROOT (not ./backend) so the image can
+          # bake in the repo-root scripts/ + config/ dirs the standalone compose needs
+          # for its first-run demo seed. See backend/Dockerfile.
+          - name: backend
+            context: .
+            dockerfile: backend/Dockerfile
+            image: ghcr.io/gdb-mtx/firemaster-backend
+          - name: frontend
+            context: ./frontend
+            dockerfile: ./frontend/Dockerfile
+            image: ghcr.io/gdb-mtx/firemaster-frontend
+    name: build-${{ matrix.name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Derive image tags & labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ matrix.image }}
+          # latest (default branch only), sha-<7char>, and a YYYY.MM.DD date tag.
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=sha-,format=short
+            type=raw,value={{date 'YYYY.MM.DD'}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Per-image GHA layer cache (scoped so backend/frontend don't evict each other).
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}

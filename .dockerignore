@@ -1,0 +1,40 @@
+# The backend image is built from the REPO ROOT (see backend/Dockerfile) so it can bake
+# in scripts/ + config/ for the standalone compose's first-run demo seed. This file keeps
+# everything the backend image does NOT need out of that build context. It does NOT affect
+# the frontend image (built with context ./frontend, governed by frontend/.dockerignore).
+#
+# Do NOT add scripts/, config/, or backend/ here — those are intentionally baked in.
+
+# VCS / CI / infra not needed inside the image
+.git/
+.github/
+.gitignore
+.gitattributes
+docs/
+*.md
+docker-compose*.yml
+
+# Frontend has its own image + build context
+frontend/
+
+# Python build artifacts / virtualenvs — the image builds its own Linux .venv
+**/.venv/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.pytest_cache/
+**/.ruff_cache/
+**/.mypy_cache/
+
+# Node — never relevant to the backend image
+**/node_modules/
+
+# Secrets / runtime artifacts — must never be baked into a layer
+**/.env
+**/.env.*
+.env
+.env.*
+**/.monarch_session
+**/*.log
+**/.DS_Store

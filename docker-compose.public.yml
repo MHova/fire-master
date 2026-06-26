@@ -1,11 +1,36 @@
+# Standalone (no-clone) compose for the free/paid tiers — Phase 2 of strategy/TIERS_PLAN.md.
+#
+# This is the file shipped in the install kit (firemaster.io), NOT the dev compose. It pulls
+# the prebuilt GHCR images and runs the whole stack with NO source-code checkout: no `build:`
+# directives, no Dockerfiles, no scripts/ or config/ on disk (they're baked into the backend
+# image). The only thing on the user's machine is this file plus a backend/.env.
+#
+# First-run flow (see the install-kit guide):
+#   1. docker compose -f docker-compose.public.yml run --rm backend uv run python -m app.setup
+#        -> writes backend/.env (JWT secret + admin password hash)
+#   2. docker compose -f docker-compose.public.yml up
+#        -> pulls images (~30-60s), migrates, auto-seeds the demo, starts everything
+#   3. open http://localhost:5173
+#
+# Staying current:  docker compose -f docker-compose.public.yml pull && \
+#                   docker compose -f docker-compose.public.yml up -d
+#
+# IMPORTANT — the .env mount:
+#   The four backend services bind-mount the single file ./backend/.env into the container
+#   (NOT an `env_file:` — Compose interpolates env_file values and strips the `$` out of the
+#   bcrypt hash, breaking login; the app reads the mounted file directly via pydantic). A
+#   Docker bind mount of a path that does NOT exist on the host is created as a *directory*,
+#   which breaks `app.setup`. So the install kit must ship an (empty) backend/.env placeholder,
+#   and the setup step in (1) above fills it in. Do not delete the placeholder.
+#
+# Monarch sync is intentionally NOT wired up here (no .monarch_session persistence): the free
+# tier is demo-only. Live Monarch sync is the paid upgrade gate (Phase 3 of the plan).
+
 services:
   postgres:
     image: postgres:16-alpine
     ports:
       - "${POSTGRES_HOST_PORT:-5432}:5432"
-    # NO env_file: backend/.env — Postgres only reads POSTGRES_* (set below), and pulling in
-    # backend/.env made Compose try to interpolate the `$...` in the bcrypt AUTH_PASSWORD_HASH
-    # ("variable not set" warnings on every up). The official image ignores those keys anyway.
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-firemaster}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-firemaster}
@@ -28,28 +53,14 @@ services:
       timeout: 5s
       retries: 5
 
-  # One-shot: applies Alembic migrations, then exits. backend/celery wait for it to
-  # finish (service_completed_successfully) so the schema always exists before they run.
+  # One-shot: applies Alembic migrations, then (on an empty DB) seeds the demo persona, then
+  # exits. The seed scripts are baked into the image at /app/scripts (the build context is the
+  # repo root — see backend/Dockerfile), so `../scripts/seed_demo.py` resolves with no mount.
   # Seeing "migrate Exited (0)" in `docker compose ps` is NORMAL.
   migrate:
-    # SOLE BUILDER of the shared backend image. `docker compose up` pulls it from GHCR; `build:`
-    # is the dev/offline fallback (`up --build` forces a local build). The other three backend
-    # services (backend, celery-worker, celery-beat) carry ONLY `image:` and reuse what this
-    # builds — they all run after migrate (depends_on: service_completed_successfully). Giving
-    # all four `build:` made Compose's bake builder build the same tag 4× in parallel and race on
-    # export ("image already exists"), breaking the offline `--build` path. One builder = no race.
-    # Context = repo root so the image bakes in scripts/ + config/ for the standalone seed —
-    # see backend/Dockerfile + the runbook.
     image: ghcr.io/gdb-mtx/firemaster-backend:latest
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
     volumes:
-      - ./backend:/app/backend
-      - /app/backend/.venv
-      - ./scripts:/app/scripts      # for the first-run demo auto-seed
-      - ./config:/app/config
-    # secrets come from the mounted backend/.env (read by pydantic), NOT env_file — see backend service
+      - ./backend/.env:/app/backend/.env   # runtime secrets (see header); NOT env_file
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-firemaster}:${POSTGRES_PASSWORD:-firemaster}@postgres:5432/${POSTGRES_DB:-firemaster}
       DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-firemaster}:${POSTGRES_PASSWORD:-firemaster}@postgres:5432/${POSTGRES_DB:-firemaster}
@@ -60,28 +71,16 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    # migrate, THEN first-run demo seed (seeds an EMPTY db only; `|| true` keeps it non-fatal)
     command: ["sh", "-c", "uv run alembic upgrade head && (uv run python ../scripts/seed_demo.py --if-empty || true)"]
 
   backend:
-    # image only — reuses what `migrate` builds/pulls (see migrate's note on the single-builder rule)
     image: ghcr.io/gdb-mtx/firemaster-backend:latest
     ports:
       - "${BACKEND_HOST_PORT:-8000}:8000"
     volumes:
-      - ./backend:/app/backend
-      - /app/backend/.venv          # anon volume: keep the image's Linux venv; don't let a host macOS .venv shadow it
-      - ./scripts:/app/scripts      # repo-root scripts, so in-container `python ../scripts/...` works
-      - ./config:/app/config        # repo-root config, used by seed scripts
-    # NOTE: intentionally NO `env_file: backend/.env`. Docker Compose INTERPOLATES env_file
-    # values, which strips the `$...` sequences inside the bcrypt AUTH_PASSWORD_HASH and breaks
-    # login. The app reads the MOUNTED backend/.env directly via pydantic (no interpolation),
-    # so the hash stays intact; only the DB/Redis URLs are injected below as overrides.
+      - ./backend/.env:/app/backend/.env   # runtime secrets (see header); NOT env_file
     environment:
-      # Inside the container, Postgres/Redis are reached by SERVICE NAME, not localhost.
-      # These override the localhost values in backend/.env (compose `environment` beats
-      # `env_file`, and pydantic reads OS-env over its .env file), so the native start.sh
-      # path — which uses backend/.env as-is — is unaffected.
+      # Inside the container Postgres/Redis are reached by SERVICE NAME, not localhost.
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-firemaster}:${POSTGRES_PASSWORD:-firemaster}@postgres:5432/${POSTGRES_DB:-firemaster}
       DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-firemaster}:${POSTGRES_PASSWORD:-firemaster}@postgres:5432/${POSTGRES_DB:-firemaster}
       REDIS_URL: redis://redis:6379/0
@@ -93,15 +92,13 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
-    command: uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    # No --reload: there's no mounted source to watch (the code is baked into the image).
+    command: uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
 
   celery-worker:
-    # image only — reuses what `migrate` builds/pulls (see migrate's note on the single-builder rule)
     image: ghcr.io/gdb-mtx/firemaster-backend:latest
     volumes:
-      - ./backend:/app/backend
-      - /app/backend/.venv          # anon volume: shield the image's Linux venv from the host mount
-    # secrets come from the mounted backend/.env (read by pydantic), NOT env_file — see backend service
+      - ./backend/.env:/app/backend/.env   # runtime secrets (see header); NOT env_file
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-firemaster}:${POSTGRES_PASSWORD:-firemaster}@postgres:5432/${POSTGRES_DB:-firemaster}
       DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-firemaster}:${POSTGRES_PASSWORD:-firemaster}@postgres:5432/${POSTGRES_DB:-firemaster}
@@ -114,16 +111,13 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
-    # -I app.tasks.sync_tasks is REQUIRED for task autodiscovery (matches scripts/start.sh)
+    # -I app.tasks.sync_tasks is REQUIRED for task autodiscovery (matches the dev compose).
     command: uv run celery -A app.tasks.celery_app worker --loglevel=info -I app.tasks.sync_tasks
 
   celery-beat:
-    # image only — reuses what `migrate` builds/pulls (see migrate's note on the single-builder rule)
     image: ghcr.io/gdb-mtx/firemaster-backend:latest
     volumes:
-      - ./backend:/app/backend
-      - /app/backend/.venv          # anon volume: shield the image's Linux venv from the host mount
-    # secrets come from the mounted backend/.env (read by pydantic), NOT env_file — see backend service
+      - ./backend/.env:/app/backend/.env   # runtime secrets (see header); NOT env_file
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-firemaster}:${POSTGRES_PASSWORD:-firemaster}@postgres:5432/${POSTGRES_DB:-firemaster}
       DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-firemaster}:${POSTGRES_PASSWORD:-firemaster}@postgres:5432/${POSTGRES_DB:-firemaster}
@@ -140,16 +134,11 @@ services:
 
   frontend:
     image: ghcr.io/gdb-mtx/firemaster-frontend:latest
-    build:
-      context: ./frontend
     ports:
       - "${FRONTEND_HOST_PORT:-5173}:5173"
-    volumes:
-      - ./frontend:/app/frontend
-      - /app/frontend/node_modules    # anon volume: keep image node_modules; don't let the host's shadow it
     environment:
       # The Vite dev server proxies /api SERVER-SIDE (inside this container), so it must
-      # reach the backend by service name, not localhost. See frontend/vite.config.ts.
+      # reach the backend by service name, not localhost.
       VITE_API_URL: http://backend:8000
     depends_on:
       - backend

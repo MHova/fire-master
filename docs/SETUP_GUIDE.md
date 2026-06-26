@@ -1,7 +1,7 @@
 # Setup Guide
 
-Complete walkthrough from clone to a living dashboard. Expect **10–20 minutes** end to end,
-most of it the one-time Docker image build. The short version is in the
+Complete walkthrough from clone to a living dashboard. Expect **~10 minutes** end to end —
+mostly the prebuilt-image pull and Docker Desktop install. The short version is in the
 [README](../README.md#quick-start); this guide adds detail, expected output, and the
 post-install configuration steps.
 
@@ -61,7 +61,9 @@ host dependencies and it works identically on Windows.
 docker compose up
 ```
 
-First run **builds the images** (a few minutes) and pulls Postgres/Redis. Then, every start:
+First run **pulls the prebuilt images** from GHCR (~30–60s) plus Postgres/Redis. (No prebuilt
+image available, or offline? `docker compose up --build` builds them locally instead — a few
+minutes.) Then, every start:
 
 1. **postgres** and **redis** come up and pass health checks,
 2. a one-shot **migrate** service runs `alembic upgrade head` — on a fresh database this builds
@@ -139,6 +141,13 @@ Everything the projections assume lives in one place: **Settings → Plan** (bas
   The seeded examples in `scripts/seed_scenarios.py` show the full key set.
 
 ## 8. Staying up to date
+
+```bash
+docker compose pull               # fetch the latest prebuilt images from GHCR
+docker compose up -d              # restart on them; migrate auto-applies any new migrations
+```
+
+Contributors developing against the source tree update with a local rebuild instead:
 
 ```bash
 git pull
