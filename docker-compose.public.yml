@@ -24,8 +24,11 @@
 #   which breaks `app.setup`. So the install kit must ship an (empty) backend/.env placeholder,
 #   and the setup step in (1) above fills it in. Do not delete the placeholder.
 #
-# Monarch sync is intentionally NOT wired up here (no .monarch_session persistence): the free
-# tier is demo-only. Live Monarch sync is the paid upgrade gate (Phase 3 of the plan).
+# Demo by default: with no Monarch session present, scheduled syncs skip gracefully and the app
+# runs on the seeded demo persona. To go live with your OWN data, connect Monarch (one command —
+# see CONNECT_MONARCH.md); the session persists in the `monarch_session` volume, all services
+# share it, sync starts, and the demo auto-clears on the first real pull. Set DEMO_MODE=true to
+# HARD-lock sync off (used for the public hosted demo, where connecting must be impossible).
 
 services:
   postgres:
@@ -80,12 +83,14 @@ services:
       - "${BACKEND_HOST_PORT:-8000}:8000"
     volumes:
       - ./backend/.env:/app/backend/.env   # runtime secrets (see header); NOT env_file
+      - monarch_session:/data              # persists the Monarch session across restarts; shared with celery
     environment:
       # Inside the container Postgres/Redis are reached by SERVICE NAME, not localhost.
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-firemaster}:${POSTGRES_PASSWORD:-firemaster}@postgres:5432/${POSTGRES_DB:-firemaster}
       DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-firemaster}:${POSTGRES_PASSWORD:-firemaster}@postgres:5432/${POSTGRES_DB:-firemaster}
       REDIS_URL: redis://redis:6379/0
       DEMO_MODE: ${DEMO_MODE:-false}
+      MONARCH_SESSION_FILE: /data/.monarch_session   # on the shared volume so backend + celery all see it
     depends_on:
       postgres:
         condition: service_healthy
@@ -100,11 +105,13 @@ services:
     image: ghcr.io/gdb-mtx/firemaster-backend:latest
     volumes:
       - ./backend/.env:/app/backend/.env   # runtime secrets (see header); NOT env_file
+      - monarch_session:/data              # shared Monarch session (the worker runs the sync task)
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-firemaster}:${POSTGRES_PASSWORD:-firemaster}@postgres:5432/${POSTGRES_DB:-firemaster}
       DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-firemaster}:${POSTGRES_PASSWORD:-firemaster}@postgres:5432/${POSTGRES_DB:-firemaster}
       REDIS_URL: redis://redis:6379/0
       DEMO_MODE: ${DEMO_MODE:-false}
+      MONARCH_SESSION_FILE: /data/.monarch_session
     depends_on:
       postgres:
         condition: service_healthy
@@ -119,11 +126,13 @@ services:
     image: ghcr.io/gdb-mtx/firemaster-backend:latest
     volumes:
       - ./backend/.env:/app/backend/.env   # runtime secrets (see header); NOT env_file
+      - monarch_session:/data              # shared Monarch session (beat schedules the sync task)
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-firemaster}:${POSTGRES_PASSWORD:-firemaster}@postgres:5432/${POSTGRES_DB:-firemaster}
       DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-firemaster}:${POSTGRES_PASSWORD:-firemaster}@postgres:5432/${POSTGRES_DB:-firemaster}
       REDIS_URL: redis://redis:6379/0
       DEMO_MODE: ${DEMO_MODE:-false}
+      MONARCH_SESSION_FILE: /data/.monarch_session
     depends_on:
       postgres:
         condition: service_healthy
@@ -146,3 +155,4 @@ services:
 
 volumes:
   pgdata:
+  monarch_session:   # holds .monarch_session once you connect Monarch (see CONNECT_MONARCH.md)

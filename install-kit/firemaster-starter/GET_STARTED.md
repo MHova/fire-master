@@ -69,6 +69,14 @@ all driven by example data so you can explore everything before connecting anyth
 
 ---
 
+## Using your own data (connect Monarch)
+
+The demo is great for exploring, but when you're ready to track your **real** finances, connect your
+Monarch Money account — one command, your data stays on your machine. See **CONNECT_MONARCH.md** in
+this folder. The demo is replaced by your real accounts automatically on the first sync.
+
+---
+
 ## Everyday use
 
 | What | Command (run in this folder) |

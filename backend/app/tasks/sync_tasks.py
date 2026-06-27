@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import os
 from datetime import date, datetime, timezone
 
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -28,6 +29,16 @@ async def _run_monarch_sync_async(full_history: bool = False):
     # pulled even if a session file happens to be mounted. See DEMO_MODE in config.
     if settings.DEMO_MODE:
         logger.info("Monarch sync skipped: DEMO_MODE enabled (session not loaded).")
+        return
+    # No session yet = not connected. Skip gracefully (NOT an error) so a fresh install runs on
+    # demo/seed data quietly until the user connects Monarch (`monarch_login.py` writes the session).
+    # Before this guard, a scheduled sync on an unconnected instance crash-looped on FileNotFoundError.
+    if not os.path.exists(settings.MONARCH_SESSION_FILE):
+        logger.info(
+            "Monarch sync skipped: no session at %s — not connected yet. "
+            "Run monarch_login to connect (see CONNECT_MONARCH.md).",
+            settings.MONARCH_SESSION_FILE,
+        )
         return
     engine = create_async_engine(settings.DATABASE_URL)
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
