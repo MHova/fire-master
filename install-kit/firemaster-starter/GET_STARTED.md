@@ -77,6 +77,42 @@ this folder. The demo is replaced by your real accounts automatically on the fir
 
 ---
 
+## Supercharge it with Claude Code (optional, but this is the point)
+
+The web app *shows* you your finances. **Claude Code** — an AI agent in your editor — *answers
+questions* and *sets things up for you*, working directly against FIREMaster's API on your machine.
+This is the feature the whole app exists to serve.
+
+**Setup (about a minute):**
+1. Install [Claude Code](https://docs.claude.com/en/docs/claude-code) and
+   [VS Code](https://code.visualstudio.com/) + its **Claude Code extension** (Pro or Max plan).
+2. **Open this `firemaster-starter` folder in VS Code.** It ships a `CLAUDE.md` that teaches the
+   agent your API automatically — endpoints, auth, the data gotchas. No setup beyond opening it.
+3. Open the Claude panel and start with:
+   > *Authenticate to the FIREMaster API (ask me for the admin password), then pull my wealth
+   > projection and orient yourself.*
+
+**Things to ask it** (it reads `CLAUDE.md` and does the API work for you):
+
+- **Enrich your accounts** — categorize them for better projections:
+  > *List my accounts, then help me set each one's role (taxable, retirement, cash, etc.) and any
+  > target balances. Ask me anything you need.*
+
+- **Build a what-if scenario** — no JSON wrangling:
+  > *Create a scenario where I retire two years earlier and cut spending 15%. Read my current
+  > config first, build the overrides, save it, activate it, and show me the impact.*
+
+- **Set up a property** (if you own one) — record + classification rules:
+  > *I own a rental called River House worth ~$450k with a $280k mortgage. Add it, create rules so
+  > Home Depot and my property manager get classified to it, and reclassify my transactions.*
+
+- **Get a report** anytime:
+  > *Write me a one-page markdown report on my retirement runway and the three biggest risks.*
+
+Everything stays local — Claude talks to `localhost:8000`, your data never leaves your machine.
+
+---
+
 ## Everyday use
 
 | What | Command (run in this folder) |
