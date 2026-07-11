@@ -74,6 +74,7 @@ class WithdrawalYearResponse(BaseModel):
     from_taxable: float
     from_deferred: float
     from_roth: float
+    from_cash: float = 0.0
     roth_conversion: float
     total_income: float
     ordinary_income: float

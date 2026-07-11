@@ -870,7 +870,7 @@ export default function TaxPlanningPage() {
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-[var(--border)]">
-                    {["Year", "Age", "Taxable", "Deferred", "Roth", "Total Tax", "Eff. Rate", "After-Tax"].map((h) => (
+                    {["Year", "Age", "Taxable", "Deferred", "Roth", "Cash", "Total Tax", "Eff. Rate", "After-Tax"].map((h) => (
                       <th
                         key={h}
                         className="py-2 px-3 text-left font-medium text-[var(--text-secondary)] uppercase tracking-wider text-[10px]"
@@ -897,6 +897,9 @@ export default function TaxPlanningPage() {
                       <td className="py-2 px-3 font-mono" style={{ color: yr.from_roth > 0 ? "var(--green)" : "var(--text-secondary)" }}>
                         {yr.from_roth > 0 ? fmt(yr.from_roth) : "—"}
                       </td>
+                      <td className="py-2 px-3 font-mono" style={{ color: yr.from_cash > 0 ? "var(--purple, #7a6aaa)" : "var(--text-secondary)" }}>
+                        {yr.from_cash > 0 ? fmt(yr.from_cash) : "—"}
+                      </td>
                       <td className="py-2 px-3 font-mono text-[var(--red)]">
                         {yr.total_tax > 0 ? fmt(yr.total_tax) : "—"}
                       </td>
@@ -911,7 +914,7 @@ export default function TaxPlanningPage() {
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-[var(--border)]">
-                    <td colSpan={5} className="py-2 px-3 text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">
+                    <td colSpan={6} className="py-2 px-3 text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">
                       {withdrawal.years.length}-Year Total
                     </td>
                     <td className="py-2 px-3 font-mono font-bold text-[var(--red)]">{fmtCompact(withdrawal.total_tax_paid)}</td>

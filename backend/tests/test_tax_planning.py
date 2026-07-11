@@ -10,10 +10,10 @@ Documented simplifications (asserted here as intended behavior, not bugs):
 - ACA below 100% FPL still gets max subsidy (no Medicaid-gap modeling), and
   cliff_warning only fires on the *approaching* side of the 400% FPL cliff.
 - The withdrawal sequencer reports taxes but does not deduct them from
-  balances, and pre-retirement years take no withdrawals even if spending
-  exceeds income (the plan starts working at retirement).
+  balances. Shortfalls draw through the waterfall pre-retirement too.
 - total_withdrawn excludes cash draws (cash is already-taxed money; the
   average_effective_rate denominator is withdrawals with tax consequences).
+  Per-year total_income/after_tax_income DO include cash draws.
 """
 
 from datetime import date
@@ -250,10 +250,12 @@ class TestWithdrawalSequence:
         with _patch_config(base_fire_config):
             plan = await engine.optimize_withdrawal_sequence(
                 years=3, roth_conversions_enabled=False)
-        # Year 0 (2026): retirement is 2026-07, plan year starts Jan 1 → not
-        # yet retired, no withdrawals (documented simplification).
-        assert plan.years[0].from_taxable == 0
-        # Year 1: taxable covers the whole need; nothing from deferred/Roth.
+        # Year 0 (2026): retirement is 2026-07 but the shortfall (no income
+        # mocked) draws through the waterfall anyway — a pre-retirement gap
+        # is a drawdown too (pre-fix, year 0 silently took nothing).
+        y0 = plan.years[0]
+        assert y0.from_taxable == pytest.approx(153_000, rel=1e-6)
+        # Year 1: taxable still covers the whole need; nothing from deferred/Roth.
         y1 = plan.years[1]
         assert y1.from_taxable == pytest.approx(153_000 * 1.03, rel=1e-6)
         assert y1.from_deferred == 0
@@ -264,15 +266,14 @@ class TestWithdrawalSequence:
         engine = _make_planning_engine(taxable=150_000, deferred=300_000, roth=500_000)
         with _patch_config(base_fire_config):
             plan = await engine.optimize_withdrawal_sequence(
-                years=4, roth_conversions_enabled=False)
-        y1, y2 = plan.years[1], plan.years[2]
-        # Year 1 drains most of taxable (150k grew 7% in year 0).
-        assert y1.from_taxable == pytest.approx(153_000 * 1.03, rel=1e-6)
-        assert y1.from_deferred == 0
-        # Year 2: taxable remainder first, then deferred picks up the rest.
-        need_y2 = 153_000 * 1.03**2
-        assert 0 < y2.from_taxable < need_y2
-        assert y2.from_deferred == pytest.approx(need_y2 - y2.from_taxable, rel=1e-6)
+                years=3, roth_conversions_enabled=False)
+        y0, y1 = plan.years[0], plan.years[1]
+        # Year 0 drains taxable (150k < 153k need), deferred covers the rest.
+        assert y0.from_taxable == pytest.approx(150_000, rel=1e-6)
+        assert y0.from_deferred == pytest.approx(153_000 - 150_000, rel=1e-6)
+        # Year 1: taxable is empty — everything from deferred.
+        assert y1.from_taxable == 0
+        assert y1.from_deferred == pytest.approx(153_000 * 1.03, rel=1e-6)
 
     async def test_rmd_forced_at_73_excess_lands_in_taxable(self, frozen_today_tax):
         """Age 73+: the full RMD comes out of deferred even when spending needs
@@ -340,3 +341,65 @@ class TestWithdrawalSequence:
         assert plan.total_tax_paid == pytest.approx(total_tax, abs=0.05)
         if total_drawn > 0:
             assert plan.average_effective_rate == pytest.approx(total_tax / total_drawn, abs=1e-4)
+
+    async def test_cash_draws_visible_and_cash_compounds(self, frozen_today_tax):
+        """Cash draws are recorded per year (previously invisible in the
+        response) and the cash bucket earns its configured yield (previously
+        flat). Cash-only plan: $170K at 3% yield vs $60K real spending —
+        year 2's partial draw pins the compounding exactly."""
+        config = _make_fire_config(target_annual_spending=6_000_000)  # $60K
+        engine = _make_planning_engine(cash=170_000)
+        with _patch_config(config):
+            plan = await engine.optimize_withdrawal_sequence(
+                years=3, roth_conversions_enabled=False)
+        y0, y1, y2 = plan.years
+        assert y0.from_cash == pytest.approx(60_000)
+        assert y1.from_cash == pytest.approx(60_000 * 1.03)
+        # Remaining cash: ((170k − 60k)·1.03 − 61.8k)·1.03 = 53,045 — less
+        # than the 63,654 need, so year 2 drains exactly the grown balance.
+        # Without the yield fix this would be 48,200.
+        expected_y2 = ((170_000 - 60_000) * 1.03 - 60_000 * 1.03) * 1.03
+        assert y2.from_cash == pytest.approx(expected_y2, abs=1.0)
+        # Cash draws count as spendable income in the year rows
+        assert y0.total_income == pytest.approx(y0.from_cash)
+        assert y0.after_tax_income == pytest.approx(y0.from_cash - y0.total_tax)
+
+
+# ---------------------------------------------------------------------------
+# Bracket analysis (current-year income proration + MAGI)
+# ---------------------------------------------------------------------------
+
+class TestBracketAnalysis:
+    async def test_prorates_ended_and_future_sources(self, base_fire_config, frozen_today_tax):
+        """Calendar-year day-proration: a salary that ended Mar 31 contributes
+        90/365 of its annual amount (not the full year — the old behavior
+        overstated headline income); a source starting Nov 1 contributes
+        61/365; a dateless source counts in full. MAGI now includes
+        NON-earned income too (previously earned-only)."""
+        salary = _income_source("Salary (ended)", IncomeType.SALARY, 120_000,
+                                end=date(2026, 3, 31))
+        rental = _income_source("Rental", IncomeType.RENTAL, 12_000)
+        consulting = _income_source("Consulting (starts Nov)", IncomeType.SALARY, 120_000,
+                                    start=date(2026, 11, 1))
+        engine = _make_planning_engine(
+            deferred=100_000, income_sources=[salary, rental, consulting])
+        with _patch_config(base_fire_config):
+            result = await engine.analyze_brackets()
+
+        expected_salary = 120_000 * 90 / 365   # Jan 1 – Mar 31
+        expected_consulting = 120_000 * 61 / 365  # Nov 1 – Dec 31
+        expected_gross = expected_salary + 12_000 + expected_consulting
+        assert result["gross_income"] == pytest.approx(expected_gross, abs=0.5)
+        # FICA only on the prorated EARNED income
+        expected_fica = engine.compute_fica(expected_salary + expected_consulting)
+        assert result["fica_tax"] == pytest.approx(expected_fica, abs=1.0)
+        # MAGI includes the rental (non-earned) income
+        assert result["aca"]["magi"] == pytest.approx(expected_gross, abs=0.5)
+
+    async def test_dateless_sources_count_in_full(self, base_fire_config, frozen_today_tax):
+        rental = _income_source("Rental", IncomeType.RENTAL, 36_000)
+        engine = _make_planning_engine(deferred=50_000, income_sources=[rental])
+        with _patch_config(base_fire_config):
+            result = await engine.analyze_brackets()
+        assert result["gross_income"] == pytest.approx(36_000)
+        assert result["fica_tax"] == 0  # nothing earned

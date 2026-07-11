@@ -115,6 +115,31 @@ def _get_rmd_divisor(age: int) -> float:
     return _RMD_DIVISORS.get(age, max(2.0, 27.4 - (age - 72) * 0.5))
 
 
+def _year_fraction(year: int, start: date | None = None, end: date | None = None) -> float:
+    """Fraction of a calendar year covered by [start, end] (inclusive, day-based)."""
+    year_start, year_end = date(year, 1, 1), date(year, 12, 31)
+    s = max(start or year_start, year_start)
+    e = min(end or year_end, year_end)
+    if s > e:
+        return 0.0
+    return ((e - s).days + 1) / ((year_end - year_start).days + 1)
+
+
+def _prorated_annual_for_year(source, year: int, end_override: date | None = None) -> float:
+    """A source's dollar contribution to one calendar year, day-prorated.
+
+    A salary that ended March 24 contributed ~3 months of income this year —
+    not its full annual amount (the old behavior, which overstated headline
+    income), and not zero (which would understate it). Sources without
+    start/end dates count in full. `end_override` caps the window further
+    (e.g. earned income stops at the retirement date).
+    """
+    end = source.end_date
+    if end_override is not None and (end is None or end_override < end):
+        end = end_override
+    return (source.annual_amount / 100) * _year_fraction(year, source.start_date, end)
+
+
 # ---------------------------------------------------------------------------
 # Data classes for results
 # ---------------------------------------------------------------------------
@@ -172,6 +197,7 @@ class WithdrawalYearPlan:
     from_taxable: float
     from_deferred: float
     from_roth: float
+    from_cash: float
     roth_conversion: float
     total_income: float
     ordinary_income: float
@@ -264,6 +290,9 @@ class TaxEngine:
             # Assumed marginal rate on future RMDs, used to estimate Roth
             # conversion savings (at 73+ with SS income, 22-24% is typical).
             "assumed_rmd_marginal_rate": 0.24,
+            # Nominal yield on the cash bucket in the withdrawal plan
+            # (checking/savings/HYSA — not market return).
+            "cash_yield_rate": 0.03,
         }
         if config.custom_assumptions and "tax" in config.custom_assumptions:
             defaults.update(config.custom_assumptions["tax"])
@@ -621,6 +650,7 @@ class TaxEngine:
 
         annual_spending_cents = config.target_annual_spending or 12_000_000  # default $120K
         annual_need = annual_spending_cents / 100
+        cash_yield = tax_config.get("cash_yield_rate", 0.03)
 
         today = date.today()
         year_plans: list[WithdrawalYearPlan] = []
@@ -653,16 +683,16 @@ class TaxEngine:
             other_income = 0.0
 
             for src in income_sources:
-                if src.start_date and current_date < src.start_date:
-                    continue
-                if src.end_date and current_date > src.end_date:
-                    continue
-                # Salary/bonus stop at retirement
+                # Day-prorated contribution for this calendar year (an ended
+                # salary counts its partial year, not the full annual amount).
+                # Earned income additionally stops at the retirement date even
+                # without an explicit end_date.
+                end_override = None
                 if src.income_type.value in ("salary", "bonus", "side_hustle"):
-                    if is_retired and not src.end_date:
-                        continue
-
-                annual = src.annual_amount / 100
+                    end_override = retirement_date
+                annual = _prorated_annual_for_year(src, current_year, end_override)
+                if annual <= 0:
+                    continue
                 if src.growth_rate and yr > 0:
                     annual *= (1 + src.growth_rate / 100) ** yr
 
@@ -675,29 +705,33 @@ class TaxEngine:
                 else:
                     other_income += annual
 
-            # Social Security from config (if not in income sources)
-            if config.social_security_monthly and config.date_of_birth:
+            # Social Security from config (if not in income sources) —
+            # prorated in its first year (a mid-year start is half a year)
+            if config.social_security_monthly and config.date_of_birth and ss_income == 0:
                 ss_start = config.date_of_birth + relativedelta(years=config.social_security_start_age)
-                if current_date >= ss_start and ss_income == 0:
-                    ss_income = config.social_security_monthly * 12 / 100
+                ss_income = (config.social_security_monthly * 12 / 100) * _year_fraction(
+                    current_year, start=ss_start)
 
-            # Pension from config
-            if config.pension_monthly and config.pension_start_age and config.date_of_birth:
+            # Pension from config — same first-year proration
+            if config.pension_monthly and config.pension_start_age and config.date_of_birth and pension_income == 0:
                 pension_start = config.date_of_birth + relativedelta(years=config.pension_start_age)
-                if current_date >= pension_start and pension_income == 0:
-                    pension_income = config.pension_monthly * 12 / 100
+                pension_income = (config.pension_monthly * 12 / 100) * _year_fraction(
+                    current_year, start=pension_start)
 
             total_non_withdrawal_income = earned_income + ss_income + pension_income + other_income
             withdrawal_needed = max(0, spending_need - total_non_withdrawal_income)
 
-            # Withdrawal sequencing
+            # Withdrawal sequencing — runs whenever spending exceeds income,
+            # pre-retirement included (a shortfall is a drawdown either way;
+            # previously pre-retirement years silently took no withdrawals).
             from_taxable = 0.0
             from_deferred = 0.0
             from_roth = 0.0
+            from_cash = 0.0
             capital_gains = 0.0
             remaining_need = withdrawal_needed
 
-            if is_retired and remaining_need > 0:
+            if remaining_need > 0:
                 # Step 1: Draw from taxable first (preferential capital gains rates)
                 if taxable_balance > 0 and remaining_need > 0:
                     draw = min(remaining_need, taxable_balance)
@@ -724,6 +758,7 @@ class TaxEngine:
                 # Step 4: Cash/savings as absolute last resort
                 if cash_balance > 0 and remaining_need > 0:
                     draw = min(remaining_need, cash_balance)
+                    from_cash = draw
                     cash_balance -= draw
                     remaining_need -= draw
 
@@ -788,7 +823,10 @@ class TaxEngine:
                 dividend_income=other_income,
             )
 
-            total_gross = total_non_withdrawal_income + from_taxable + from_deferred + from_roth
+            total_gross = (
+                total_non_withdrawal_income + from_taxable + from_deferred
+                + from_roth + from_cash
+            )
             effective = total_tax_year / total_gross if total_gross > 0 else 0
 
             year_plans.append(WithdrawalYearPlan(
@@ -797,6 +835,7 @@ class TaxEngine:
                 from_taxable=round(from_taxable, 2),
                 from_deferred=round(from_deferred, 2),
                 from_roth=round(from_roth, 2),
+                from_cash=round(from_cash, 2),
                 roth_conversion=round(roth_conversion, 2),
                 total_income=round(total_gross, 2),
                 ordinary_income=round(ordinary_income, 2),
@@ -813,10 +852,11 @@ class TaxEngine:
             total_tax += total_tax_year
             total_withdrawn += from_taxable + from_deferred + from_roth
 
-            # Grow remaining balances
+            # Grow remaining balances (cash at its own yield, not market return)
             deferred_balance *= (1 + annual_return)
             roth_balance *= (1 + annual_return)
             taxable_balance *= (1 + annual_return)
+            cash_balance *= (1 + cash_yield)
 
         avg_rate = total_tax / total_withdrawn if total_withdrawn > 0 else 0
 
@@ -986,11 +1026,18 @@ class TaxEngine:
         brackets = self._get_brackets(tax_config)
         household_size = tax_config.get("household_size", 1)
 
-        # Get current income estimate
+        # Current CALENDAR-YEAR income, day-prorated by each source's active
+        # window — an ended salary contributes its partial-year amount, not
+        # its full annual value.
         income_sources = await self._get_active_income_sources()
-        total_income = sum(s.annual_amount / 100 for s in income_sources if s.is_active)
+        current_year = date.today().year
+        total_income = sum(
+            _prorated_annual_for_year(s, current_year)
+            for s in income_sources if s.is_active
+        )
         earned_income = sum(
-            s.annual_amount / 100 for s in income_sources
+            _prorated_annual_for_year(s, current_year)
+            for s in income_sources
             if s.income_type.value in ("salary", "bonus", "side_hustle") and s.is_active
         )
 
@@ -1004,8 +1051,13 @@ class TaxEngine:
         # Account balances by tax treatment
         accounts = await self.get_accounts_by_tax_treatment()
 
-        # ACA analysis
-        magi = self.compute_magi(earned_income=earned_income)
+        # ACA analysis — MAGI includes NON-earned income too (rental,
+        # severance, dividends); previously only earned income was counted,
+        # understating MAGI whenever other income existed.
+        magi = self.compute_magi(
+            earned_income=earned_income,
+            rental_income=max(0.0, total_income - earned_income),
+        )
         age = 0.0
         if config.date_of_birth:
             age = self._compute_age(config, date.today())

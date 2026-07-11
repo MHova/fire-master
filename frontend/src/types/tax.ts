@@ -67,6 +67,7 @@ export interface WithdrawalYear {
   from_taxable: number;
   from_deferred: number;
   from_roth: number;
+  from_cash: number;
   roth_conversion: number;
   total_income: number;
   ordinary_income: number;
