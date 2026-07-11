@@ -198,6 +198,8 @@ class MonteCarloResponse(BaseModel):
     percentile_curves: list[PercentileCurvePoint]
     worst_final_nw: float
     best_final_nw: float
+    # Model disclosure (additive; frontend tolerates absence)
+    assumptions: dict | None = None
 
 
 # --- SEPP / 72(t) ---

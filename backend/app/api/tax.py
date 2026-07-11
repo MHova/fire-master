@@ -140,9 +140,10 @@ async def sepp_calculator(
 @router.get("/monte-carlo", response_model=MonteCarloResponse)
 async def run_monte_carlo(
     runs: int = Query(default=1000, ge=100, le=10000),
+    seed: int | None = Query(default=None, description="Fix the RNG seed for reproducible runs"),
     _user: str = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Monte Carlo simulation — randomized return sequences."""
+    """Monte Carlo simulation — correlated stochastic returns + inflation, real terms."""
     engine = MonteCarloEngine(db)
-    return await engine.run_simulation(n_runs=runs)
+    return await engine.run_simulation(n_runs=runs, seed=seed)

@@ -1,8 +1,34 @@
-"""Monte Carlo simulation engine for FIRE projections."""
+"""Monte Carlo simulation engine for FIRE projections.
+
+REAL-TERMS frame, consistent with project_wealth_pools: the portfolio
+compounds at a stochastic REAL return, and spending/income/SS stay FLAT in
+today's dollars (constant purchasing power; COLA offsets inflation).
+
+Per-year draw:
+  z_r, z_o ~ N(0,1) independent;  z_i = rho*z_r + sqrt(1-rho^2)*z_o
+  r_nom = exp(ln(1+mu_nom) + sigma*z_r) - 1     (lognormal gross growth —
+          median-calibrated: the median path compounds at exactly mu_nom)
+  infl  = max(-0.99, mu_i + sigma_i*z_i)         (normal, floored)
+  r_real = (1+r_nom)/(1+infl) - 1
+
+rho defaults to -0.25 (high-inflation years lean low-return), which makes
+real returns MORE volatile than nominal-only volatility would suggest —
+that's the honest cost of inflation risk in a real-terms model.
+
+History note: the previous implementation drew a REAL return but inflated
+spending/income NOMINALLY — double-counting inflation and making every fan
+chart too pessimistic. Fixed 2026-07-11.
+
+Overrides via fire_config.custom_assumptions["monte_carlo"]:
+  return_std (0.16), inflation_std (0.015), correlation (-0.25).
+Nominal return mean and inflation mean come from the base config
+(expected_annual_return / expected_inflation_rate).
+"""
 
 from __future__ import annotations
 
 import logging
+import math
 import random
 from dataclasses import dataclass
 from datetime import date
@@ -10,15 +36,47 @@ from datetime import date
 from dateutil.relativedelta import relativedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.engines.fire_projections import SS_COLA_RATE, _spending_multiplier
+from app.engines.fire_projections import _spending_multiplier
 from app.schemas.tax import MonteCarloResponse, PercentileCurvePoint
 
 logger = logging.getLogger(__name__)
 
-# Historical S&P 500 annual returns (real, inflation-adjusted) 1928-2024
-# Mean ~7%, std dev ~16% (nominal ~10%, std dev ~16%)
-HISTORICAL_MEAN_REAL = 0.07
-HISTORICAL_STD_DEV = 0.16
+# Historical S&P 500 annual volatility (~16%, 1928-2024). Return MEAN comes
+# from config (expected_annual_return, nominal).
+DEFAULT_RETURN_STD = 0.16
+DEFAULT_INFLATION_STD = 0.015
+DEFAULT_CORRELATION = -0.25
+
+
+def _draw_year(
+    rng: random.Random,
+    mu_nom: float,
+    sigma: float,
+    mu_i: float,
+    sigma_i: float,
+    rho: float,
+) -> tuple[float, float]:
+    """One year's correlated (real_return, inflation) draw.
+
+    Degenerate volatilities collapse to the deterministic means, so a
+    zero-vol run reproduces plain compound growth exactly.
+    """
+    z_r = rng.gauss(0.0, 1.0)
+    z_o = rng.gauss(0.0, 1.0)
+    rho = max(-0.99, min(0.99, rho))
+    z_i = rho * z_r + math.sqrt(1.0 - rho * rho) * z_o
+
+    if sigma > 0:
+        r_nom = math.exp(math.log(1.0 + mu_nom) + sigma * z_r) - 1.0
+    else:
+        r_nom = mu_nom
+    if sigma_i > 0:
+        infl = max(-0.99, mu_i + sigma_i * z_i)
+    else:
+        infl = mu_i
+
+    r_real = (1.0 + r_nom) / (1.0 + infl) - 1.0
+    return r_real, infl
 
 
 @dataclass
@@ -42,9 +100,9 @@ class MonteCarloEngine:
     ) -> MonteCarloResponse:
         """Run N Monte Carlo simulations with randomized annual returns.
 
-        Each run uses the same config/spending/income but draws random
-        annual return rates from a normal distribution matching historical
-        stock market performance. This captures sequence-of-returns risk.
+        Each run uses the same config/spending/income but draws correlated
+        (return, inflation) pairs per year — sequence-of-returns risk plus
+        inflation risk, in real terms.
         """
         from app.engines.fire_projections import FireProjectionsEngine
         from app.engines.net_worth import NetWorthEngine
@@ -54,9 +112,9 @@ class MonteCarloEngine:
         nw_engine = NetWorthEngine(self.db)
         nw = await nw_engine.calculate_current()
 
-        current_nw = nw.net_worth  # already in dollars
+        current_nw = nw.net_worth  # dollars
         annual_spending_cents = await fire_engine._get_annual_spending(config)
-        annual_spending = annual_spending_cents / 100
+        annual_spending = annual_spending_cents / 100  # flat REAL
         income_sources = await fire_engine._get_income_sources()
 
         retirement_date = fire_engine._get_retirement_date(config)
@@ -72,13 +130,18 @@ class MonteCarloEngine:
         if retirement_date and retirement_date > today:
             years_to_retirement = max(0, (retirement_date.year - today.year))
 
-        # Mean real return from config (or historical default)
-        mean_return = (config.expected_annual_return - config.expected_inflation_rate) / 100
-        std_dev = HISTORICAL_STD_DEV
+        # Stochastic parameters: nominal return mean + inflation mean from the
+        # base config; volatilities/correlation overridable via
+        # custom_assumptions.monte_carlo.
+        mc_cfg = (config.custom_assumptions or {}).get("monte_carlo", {})
+        mu_nom = config.expected_annual_return / 100
+        mu_i = config.expected_inflation_rate / 100
+        sigma = mc_cfg.get("return_std", DEFAULT_RETURN_STD)
+        sigma_i = mc_cfg.get("inflation_std", DEFAULT_INFLATION_STD)
+        rho = mc_cfg.get("correlation", DEFAULT_CORRELATION)
 
-        inflation = config.expected_inflation_rate / 100
-
-        # Social Security and pension (annual, in dollars)
+        # Social Security and pension (annual dollars, FLAT REAL — COLA
+        # offsets inflation, mirroring project_wealth_pools).
         ss_annual = 0.0
         if config.social_security_monthly:
             ss_annual = config.social_security_monthly * 12 / 100
@@ -95,7 +158,7 @@ class MonteCarloEngine:
             pension_start_date = config.date_of_birth + relativedelta(years=config.pension_start_age)
             pension_start_year = max(0, pension_start_date.year - today.year)
 
-        # Pre-compute income from sources by category
+        # Pre-compute income from sources by category (flat real)
         earned_annual = 0.0  # stops at retirement
         continuing_annual = 0.0  # rental, dividends, etc. — continues post-retirement
         for src in income_sources:
@@ -106,65 +169,51 @@ class MonteCarloEngine:
             else:
                 continuing_annual += src.annual_amount / 100
 
-        # Compute starting age for spending phase lookup
+        # Starting age for spending-phase lookup
         start_age = fire_engine._compute_age(config, today) if config.date_of_birth else 30
 
-        if seed is not None:
-            random.seed(seed)
+        rng = random.Random(seed)
 
-        # Run simulations
+        # Run simulations (all values in real dollars)
         runs: list[SimulationRun] = []
         for _ in range(n_runs):
-            nw_val = current_nw * 100  # work in cents for consistency
+            nw_val = current_nw
             yearly_nw: list[float] = [current_nw]
             money_lasted = True
 
             for yr in range(total_years):
-                # Random annual return
-                annual_return = random.gauss(mean_return, std_dev)
+                r_real, _infl = _draw_year(rng, mu_nom, sigma, mu_i, sigma_i, rho)
 
                 age = start_age + yr
                 is_retired = yr >= years_to_retirement
 
-                # Spending (inflation-adjusted + retirement phase reduction)
-                yr_spending = annual_spending * ((1 + inflation) ** yr)
+                # Spending: constant purchasing power + retirement phase step-down
+                yr_spending = annual_spending
                 if is_retired:
                     yr_spending *= _spending_multiplier(age)
 
-                # Income
-                yr_income = continuing_annual * ((1 + inflation) ** yr)
-
+                # Income: flat real
+                yr_income = continuing_annual
                 if not is_retired:
-                    yr_income += earned_annual * ((1 + inflation) ** yr)
-
-                # SS with COLA (~2.5%/yr from start)
+                    yr_income += earned_annual
                 if yr >= ss_start_year:
-                    ss_years_active = yr - ss_start_year
-                    yr_income += ss_annual * ((1 + SS_COLA_RATE) ** ss_years_active)
-                # Pension with COLA
+                    yr_income += ss_annual
                 if yr >= pension_start_year:
-                    pension_years_active = yr - pension_start_year
-                    yr_income += pension_annual * ((1 + SS_COLA_RATE) ** pension_years_active)
+                    yr_income += pension_annual
 
-                # Net cash flow
                 net_cash = yr_income - yr_spending
-
-                # Apply return + cash flow (all in dollars)
-                nw_dollars = nw_val / 100
-                nw_dollars = nw_dollars * (1 + annual_return) + net_cash
-                nw_val = nw_dollars * 100
-
-                yearly_nw.append(round(nw_dollars, 2))
+                nw_val = nw_val * (1 + r_real) + net_cash
+                yearly_nw.append(round(nw_val, 2))
 
                 if nw_val < 0:
                     money_lasted = False
-                    # Pad remaining years with negative values
+                    # Pad remaining years with the breach value
                     for _ in range(yr + 1, total_years):
-                        yearly_nw.append(round(nw_val / 100, 2))
+                        yearly_nw.append(round(nw_val, 2))
                     break
 
             runs.append(SimulationRun(
-                final_net_worth=round(nw_val / 100, 2),
+                final_net_worth=round(nw_val, 2),
                 money_lasted=money_lasted,
                 yearly_net_worths=yearly_nw,
             ))
@@ -173,7 +222,7 @@ class MonteCarloEngine:
         finals = sorted(r.final_net_worth for r in runs)
         success_count = sum(1 for r in runs if r.money_lasted)
 
-        # Percentile curves (year-by-year percentiles)
+        # Percentile curves (year-by-year percentiles across runs)
         curves: list[PercentileCurvePoint] = []
         for yr in range(total_years + 1):
             values = sorted(r.yearly_net_worths[yr] for r in runs if yr < len(r.yearly_net_worths))
@@ -201,4 +250,11 @@ class MonteCarloEngine:
             percentile_curves=curves,
             worst_final_nw=round(finals[0], 2),
             best_final_nw=round(finals[-1], 2),
+            assumptions={
+                "frame": "real (today's dollars); spending/income/SS flat real",
+                "return_model": f"lognormal gross growth, median {mu_nom:.2%} nominal, sigma {sigma:.2%}",
+                "inflation_model": f"normal, mean {mu_i:.2%}, sigma {sigma_i:.2%}, corr {rho:+.2f} with returns",
+                "real_return": "(1+r_nom)/(1+inflation) - 1 per year",
+                "seed": seed,
+            },
         )
