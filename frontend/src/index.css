@@ -326,6 +326,14 @@ header[class*="bg-\[var\(--bg-secondary\)\]"] {
   -webkit-backdrop-filter: blur(12px) !important;
 }
 
+/* While an event-marker badge is hovered (EventMarkers.tsx), hide the series
+   crosshair tooltip and its active dots so the event card stands alone.
+   !important: Recharts toggles visibility via inline style. */
+.fm-event-hover .recharts-tooltip-wrapper,
+.fm-event-hover .recharts-active-dot {
+  visibility: hidden !important;
+}
+
 /* ── Buttons ── */
 button {
   transition: all 0.15s ease;

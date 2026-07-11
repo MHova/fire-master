@@ -44,11 +44,3 @@ export function fmtAxis(value: number): string {
 export function fmtPct(value: number): string {
   return `${(value * 100).toFixed(1)}%`;
 }
-
-/**
- * Abbreviate a cashflow-event name for chart markers: strip any parenthetical
- * and truncate (e.g., "Auto loan payoff savings (est.)" → "Auto loan pa").
- */
-export function abbreviateEvent(name: string, maxLen = 12): string {
-  return name.split("(")[0].trim().slice(0, maxLen);
-}

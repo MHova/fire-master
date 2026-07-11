@@ -20,8 +20,10 @@ import {
   useUpdateCashflowEvent,
   useFireConfig,
 } from "../api/queries";
-import { formatCurrency, fmtAxis, abbreviateEvent } from "../utils/formatting";
+import { formatCurrency, fmtAxis } from "../utils/formatting";
 import { TOOLTIP_STYLE } from "../utils/theme";
+import { useEventMarkers } from "../components/charts/EventMarkers";
+import type { EventMarkerGroup } from "../components/charts/EventMarkers";
 import type { CashflowEvent, CashflowEventCreate } from "../types/cashflow";
 
 /* ------------------------------------------------------------------ */
@@ -567,6 +569,36 @@ export default function RunwayPage() {
     [chartData],
   );
 
+  // Marker groups for the chart: enrich the projection's bare event names
+  // with amount/date/probability by joining against the full event objects.
+  const markerGroups = useMemo<EventMarkerGroup[]>(() => {
+    const byName = new Map((events ?? []).map((e) => [e.name, e]));
+    return eventPoints.map((p) => ({
+      x: p.month,
+      y: p.cash,
+      events: p.events.map((name) => {
+        const ev = byName.get(name);
+        return {
+          label: name,
+          amount: ev ? (ev.event_type === "expense" ? -ev.amount : ev.amount) : undefined,
+          date: ev?.date,
+          probability: ev?.probability,
+        };
+      }),
+    }));
+  }, [eventPoints, events]);
+
+  const { markers: eventMarkers, overlay: eventOverlay, wrapperProps: chartWrapperProps } =
+    useEventMarkers(markerGroups, {
+      defaultColor: "var(--yellow)",
+      xLabel: (m) => {
+        const d = new Date(`${m}-01`);
+        return isNaN(d.getTime())
+          ? String(m)
+          : d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+      },
+    });
+
   // Y-axis position of the zero line as a fraction from the top (0..1).
   // Used to split the area + stroke gradients into a green region above
   // zero and a red region below. Falls back to 1 (all green) when cash
@@ -776,6 +808,7 @@ export default function RunwayPage() {
               </div>
             )}
           </div>
+          <div {...chartWrapperProps}>
           <ResponsiveContainer width="100%" height={340}>
             <AreaChart
               data={chartData}
@@ -849,29 +882,7 @@ export default function RunwayPage() {
                   fontSize: 10,
                 }}
               />
-              {eventPoints.map((p, i) => {
-                const parts = p.events.map((s) => abbreviateEvent(s));
-                const label =
-                  parts.length > 2
-                    ? `${parts.slice(0, 2).join(" + ")} +${parts.length - 2}`
-                    : parts.join(" + ");
-                return (
-                  <ReferenceLine
-                    key={p.month}
-                    x={p.month}
-                    stroke="var(--yellow)"
-                    strokeDasharray="3 6"
-                    strokeOpacity={0.6}
-                    label={{
-                      value: label,
-                      position: "top",
-                      fill: "var(--yellow)",
-                      fontSize: 9,
-                      offset: i % 2 === 0 ? 5 : 18,
-                    }}
-                  />
-                );
-              })}
+              {eventMarkers}
               <Area
                 type="monotone"
                 dataKey="cash"
@@ -883,6 +894,8 @@ export default function RunwayPage() {
               />
             </AreaChart>
           </ResponsiveContainer>
+          {eventOverlay}
+          </div>
         </div>
 
         {/* Two-column: Income/Expense Bars + Events */}

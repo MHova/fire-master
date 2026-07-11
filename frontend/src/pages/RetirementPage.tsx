@@ -13,7 +13,9 @@ import {
   useWealthProjection,
 } from "../api/queries";
 import Layout from "../components/Layout";
-import { formatCurrency as fmt, fmtCompact, fmtAxis, abbreviateEvent } from "../utils/formatting";
+import { formatCurrency as fmt, fmtCompact, fmtAxis } from "../utils/formatting";
+import { useEventMarkers } from "../components/charts/EventMarkers";
+import type { EventMarkerGroup } from "../components/charts/EventMarkers";
 import { TOOLTIP_STYLE } from "../utils/theme";
 import type { Milestone, SpendingSensitivity, WealthPoolProjection } from "../types/fire";
 import {
@@ -192,10 +194,27 @@ function BridgeChart({ points }: { points: WealthPoolProjection["points"]; event
   const minCashMonth = bridgeData.find((p) => p.cash === minCash);
   const lastPoint = bridgeData[bridgeData.length - 1];
 
-  // Find significant one-time events for markers.
-  // Skip month 0-1: near-term one-off clutter obscures the meaningful
-  // bridge-period markers.
-  const eventPoints = bridgeData.filter((p) => p.event && (p.month ?? 0) >= 2);
+  // Significant one-time events for markers. Skip month 0-1: near-term
+  // one-off clutter obscures the meaningful bridge-period markers.
+  // Amounts are embedded in the backend label strings (e.g. "Sell Primary
+  // (+$610,000→taxable)") — display verbatim, no parsing.
+  const markerGroups = useMemo<EventMarkerGroup[]>(
+    () =>
+      bridgeData
+        .filter((p) => p.event && (p.month ?? 0) >= 2)
+        .map((p) => ({
+          x: p.month!,
+          y: p.cash,
+          events: p.event!.split("; ").map((label) => ({ label })),
+        })),
+    [bridgeData],
+  );
+
+  const { markers: eventMarkers, overlay: eventOverlay, wrapperProps: chartWrapperProps } =
+    useEventMarkers(markerGroups, {
+      defaultColor: "var(--yellow)",
+      xLabel: (m) => `Month ${m}`,
+    });
 
   return (
     <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-4">
@@ -222,6 +241,7 @@ function BridgeChart({ points }: { points: WealthPoolProjection["points"]; event
         </div>
       </div>
 
+      <div {...chartWrapperProps}>
       <ResponsiveContainer width="100%" height={400}>
         <ComposedChart data={bridgeData} margin={{ top: 30, right: 10, left: 10, bottom: 0 }}>
           <defs>
@@ -277,26 +297,7 @@ function BridgeChart({ points }: { points: WealthPoolProjection["points"]; event
           <ReferenceLine y={0} stroke="var(--red)" strokeDasharray="4 4" strokeOpacity={0.5} />
 
           {/* Event markers */}
-          {eventPoints.map((p, i) => {
-            const parts = p.event!.split("; ").map((s) => abbreviateEvent(s));
-            const label = parts.length > 2 ? `${parts.slice(0, 2).join(" + ")} +${parts.length - 2}` : parts.join(" + ");
-            return (
-              <ReferenceLine
-                key={p.month}
-                x={p.month!}
-                stroke="var(--yellow)"
-                strokeDasharray="3 6"
-                strokeOpacity={0.6}
-                label={{
-                  value: label,
-                  position: "top",
-                  fill: "var(--yellow)",
-                  fontSize: 9,
-                  offset: i % 2 === 0 ? 5 : 18,
-                }}
-              />
-            );
-          })}
+          {eventMarkers}
 
           {/* SEPP start marker */}
           <ReferenceLine
@@ -315,16 +316,21 @@ function BridgeChart({ points }: { points: WealthPoolProjection["points"]; event
 
         </ComposedChart>
       </ResponsiveContainer>
+      {eventOverlay}
+      </div>
 
       <div className="flex items-center gap-5 mt-3 pt-3 border-t border-[var(--border)]">
         {[
           { label: "Cash Balance", color: "var(--green)" },
           { label: "Net Monthly", color: "var(--blue)", dashed: true },
-          { label: "Events", color: "var(--yellow)", dashed: true },
+          { label: "Events", color: "var(--yellow)", dot: true },
           { label: "SEPP+RRIF zone", color: "var(--purple, #7a6aaa)", dashed: true },
         ].map((l) => (
           <div key={l.label} className="flex items-center gap-1.5">
-            <div className="w-3 h-[3px] rounded-full" style={{ backgroundColor: l.color, opacity: l.dashed ? 0.6 : 0.8 }} />
+            <div
+              className={l.dot ? "w-2 h-2 rounded-full" : "w-3 h-[3px] rounded-full"}
+              style={{ backgroundColor: l.color, opacity: l.dashed ? 0.6 : 0.8 }}
+            />
             <span className="text-[10px] text-[var(--text-secondary)]">{l.label}</span>
           </div>
         ))}
@@ -579,6 +585,45 @@ export default function RetirementPage() {
   const { data: wealthProjection, isLoading: loadingWealth } = useWealthProjection(spendingOverrideCents);
   const { data: bridgeProjection } = useBridgeProjection(spendingOverrideCents);
 
+  // Wealth chart data, hoisted so the milestone markers can snap to the
+  // chart's own x values (category axis requires exact matches — the old
+  // Math.round(ev.age) only matched by luck).
+  const wealthChartData = useMemo(
+    () =>
+      (wealthProjection?.points ?? []).map((p) => ({
+        ...p,
+        cash: Math.max(0, p.cash), // clamp for stacked areas
+        taxable: Math.max(0, p.taxable ?? 0), // clamp for stacked areas
+        annual_spending: p.expenses * 12,
+      })),
+    [wealthProjection],
+  );
+
+  const wealthMarkerGroups = useMemo<EventMarkerGroup[]>(() => {
+    if (!wealthProjection || wealthChartData.length === 0) return [];
+    const byX = new Map<number, EventMarkerGroup>();
+    for (const ev of wealthProjection.events) {
+      const pt =
+        wealthChartData.find((p) => p.month === ev.month) ??
+        // Fallback: nearest point by age (events should always carry an
+        // in-range month, but never drop a milestone silently).
+        wealthChartData.reduce((best, p) =>
+          Math.abs(p.age - ev.age) < Math.abs(best.age - ev.age) ? p : best,
+        );
+      const existing = byX.get(pt.age);
+      const detail = { label: ev.label, color: ev.color };
+      if (existing) existing.events.push(detail);
+      else byX.set(pt.age, { x: pt.age, y: pt.total, events: [detail] });
+    }
+    return [...byX.values()];
+  }, [wealthProjection, wealthChartData]);
+
+  const { markers: wealthMarkers, overlay: wealthOverlay, wrapperProps: wealthWrapperProps } =
+    useEventMarkers(wealthMarkerGroups, {
+      defaultColor: "var(--yellow)",
+      xLabel: (age) => `Age ${Number(age).toFixed(1)}`,
+    });
+
   const isLoading = loadingNum || loadingReady;
 
   if (isLoading || !fireNum || !readiness) {
@@ -802,17 +847,13 @@ export default function RetirementPage() {
                 </div>
               )}
             </div>
-            {wealthProjection && wealthProjection.points.length > 0 ? (
+            {wealthProjection && wealthChartData.length > 0 ? (
               <>
+                <div {...wealthWrapperProps}>
                 <ResponsiveContainer width="100%" height={400}>
                   <ComposedChart
-                    data={wealthProjection.points.map((p) => ({
-                      ...p,
-                      cash: Math.max(0, p.cash),  // clamp for stacked areas
-                      taxable: Math.max(0, p.taxable ?? 0),  // clamp for stacked areas
-                      annual_spending: p.expenses * 12,
-                    }))}
-                    margin={{ top: 20, right: 60, left: 10, bottom: 0 }}
+                    data={wealthChartData}
+                    margin={{ top: 32, right: 60, left: 10, bottom: 0 }}
                   >
                     <defs>
                       <linearGradient id="gradIraB" x1="0" y1="0" x2="0" y2="1">
@@ -878,22 +919,8 @@ export default function RetirementPage() {
 
                     <ReferenceLine y={0} stroke="var(--red)" strokeDasharray="4 4" strokeOpacity={0.6} />
 
-                    {/* Milestone reference lines */}
-                    {wealthProjection.events.map((ev) => (
-                      <ReferenceLine
-                        key={ev.label}
-                        x={Math.round(ev.age)}
-                        stroke={ev.color}
-                        strokeDasharray="4 6"
-                        strokeOpacity={0.5}
-                        label={{
-                          value: ev.label,
-                          position: "top",
-                          fill: ev.color,
-                          fontSize: 10,
-                        }}
-                      />
-                    ))}
+                    {/* Milestone markers */}
+                    {wealthMarkers}
 
                     {/* Stacked areas: IRA-B + Taxable (bottom, stable), IRA-A, RRSP, Cash, Illiquid, RE (top, has discontinuities) */}
                     <Area type="monotone" dataKey="ira_growth" stackId="wealth" stroke="var(--blue)" strokeWidth={0} fill="url(#gradIraB)" />
@@ -920,6 +947,8 @@ export default function RetirementPage() {
                     <Line yAxisId="spending" type="monotone" dataKey="annual_spending" stroke="var(--red)" strokeWidth={1.5} strokeDasharray="6 3" dot={false} strokeOpacity={0.7} />
                   </ComposedChart>
                 </ResponsiveContainer>
+                {wealthOverlay}
+                </div>
 
                 {/* Legend + summary row */}
                 <div className="flex items-center justify-between mt-4 pt-4 border-t border-[var(--border)]">
