@@ -9,8 +9,11 @@ the account mocks.
 Documented simplifications (asserted here as intended behavior, not bugs):
 - ACA below 100% FPL still gets max subsidy (no Medicaid-gap modeling), and
   cliff_warning only fires on the *approaching* side of the 400% FPL cliff.
-- The withdrawal sequencer reports taxes but does not deduct them from
-  balances. Shortfalls draw through the waterfall pre-retirement too.
+- The withdrawal sequencer runs in REAL terms: spending flat, balances at
+  the real return ((1.07/1.03)−1 for the persona), brackets frozen at
+  today's levels (≈ IRS inflation indexing). Taxes are reported but not
+  deducted from balances. Shortfalls draw through the waterfall
+  pre-retirement too.
 - total_withdrawn excludes cash draws (cash is already-taxed money; the
   average_effective_rate denominator is withdrawals with tax consequences).
   Per-year total_income/after_tax_income DO include cash draws.
@@ -255,9 +258,9 @@ class TestWithdrawalSequence:
         # is a drawdown too (pre-fix, year 0 silently took nothing).
         y0 = plan.years[0]
         assert y0.from_taxable == pytest.approx(153_000, rel=1e-6)
-        # Year 1: taxable still covers the whole need; nothing from deferred/Roth.
+        # Year 1: spending is FLAT in real terms; taxable still covers it.
         y1 = plan.years[1]
-        assert y1.from_taxable == pytest.approx(153_000 * 1.03, rel=1e-6)
+        assert y1.from_taxable == pytest.approx(153_000, rel=1e-6)
         assert y1.from_deferred == 0
         assert y1.from_roth == 0
         assert y1.capital_gains_income == pytest.approx(y1.from_taxable * 0.4)
@@ -271,9 +274,9 @@ class TestWithdrawalSequence:
         # Year 0 drains taxable (150k < 153k need), deferred covers the rest.
         assert y0.from_taxable == pytest.approx(150_000, rel=1e-6)
         assert y0.from_deferred == pytest.approx(153_000 - 150_000, rel=1e-6)
-        # Year 1: taxable is empty — everything from deferred.
+        # Year 1: taxable is empty — everything from deferred (flat real need).
         assert y1.from_taxable == 0
-        assert y1.from_deferred == pytest.approx(153_000 * 1.03, rel=1e-6)
+        assert y1.from_deferred == pytest.approx(153_000, rel=1e-6)
 
     async def test_rmd_forced_at_73_excess_lands_in_taxable(self, frozen_today_tax):
         """Age 73+: the full RMD comes out of deferred even when spending needs
@@ -294,12 +297,13 @@ class TestWithdrawalSequence:
         assert y0.from_deferred == pytest.approx(30_000)
         # 2027 (73.6): RMD divisor 26.5 forces the minimum on the post-draw
         # balance (model simplification vs the IRS prior-Dec-31 basis).
-        need_y1 = 30_000 * 1.03
-        deferred_after_draw = (2_000_000 - 30_000) * 1.07 - need_y1
+        # Balances grow at the REAL return (1.07/1.03); spending flat real.
+        real_growth = 1.07 / 1.03
+        deferred_after_draw = (2_000_000 - 30_000) * real_growth - 30_000
         assert y1.from_deferred == pytest.approx(deferred_after_draw / 26.5, rel=1e-6)
-        assert y1.from_deferred > need_y1
+        assert y1.from_deferred > 30_000
         # 2028: spending is drawn from taxable — the redeposited RMD excess.
-        assert y2.from_taxable == pytest.approx(30_000 * 1.03**2, rel=1e-6)
+        assert y2.from_taxable == pytest.approx(30_000, rel=1e-6)
 
     async def test_roth_conversion_fills_bracket_in_window(self, base_fire_config, frozen_today_tax):
         engine = _make_planning_engine(taxable=800_000, deferred=400_000)
@@ -342,11 +346,13 @@ class TestWithdrawalSequence:
         if total_drawn > 0:
             assert plan.average_effective_rate == pytest.approx(total_tax / total_drawn, abs=1e-4)
 
-    async def test_cash_draws_visible_and_cash_compounds(self, frozen_today_tax):
+    async def test_cash_draws_visible_and_real_yield(self, frozen_today_tax):
         """Cash draws are recorded per year (previously invisible in the
-        response) and the cash bucket earns its configured yield (previously
-        flat). Cash-only plan: $170K at 3% yield vs $60K real spending —
-        year 2's partial draw pins the compounding exactly."""
+        response). In real terms cash is FLAT by default (holds purchasing
+        power, earns nothing above inflation); a configured positive REAL
+        yield compounds. Cash-only plan, $170K vs $60K flat spending —
+        year 2's partial draw pins the behavior exactly."""
+        # Default: real yield 0 → cash balance just depletes
         config = _make_fire_config(target_annual_spending=6_000_000)  # $60K
         engine = _make_planning_engine(cash=170_000)
         with _patch_config(config):
@@ -354,15 +360,23 @@ class TestWithdrawalSequence:
                 years=3, roth_conversions_enabled=False)
         y0, y1, y2 = plan.years
         assert y0.from_cash == pytest.approx(60_000)
-        assert y1.from_cash == pytest.approx(60_000 * 1.03)
-        # Remaining cash: ((170k − 60k)·1.03 − 61.8k)·1.03 = 53,045 — less
-        # than the 63,654 need, so year 2 drains exactly the grown balance.
-        # Without the yield fix this would be 48,200.
-        expected_y2 = ((170_000 - 60_000) * 1.03 - 60_000 * 1.03) * 1.03
-        assert y2.from_cash == pytest.approx(expected_y2, abs=1.0)
+        assert y1.from_cash == pytest.approx(60_000)
+        assert y2.from_cash == pytest.approx(170_000 - 120_000)  # the flat remainder
         # Cash draws count as spendable income in the year rows
         assert y0.total_income == pytest.approx(y0.from_cash)
         assert y0.after_tax_income == pytest.approx(y0.from_cash - y0.total_tax)
+
+        # Configured +2% REAL yield (HYSA above inflation) → compounds
+        config2 = _make_fire_config(target_annual_spending=6_000_000)
+        config2.custom_assumptions["tax"] = {
+            **config2.custom_assumptions["tax"], "cash_yield_rate": 0.02,
+        }
+        with _patch_config(config2):
+            plan2 = await engine.optimize_withdrawal_sequence(
+                years=3, roth_conversions_enabled=False)
+        # ((170k − 60k)·1.02 − 60k)·1.02 = 53,244 — year 2 drains it exactly
+        expected_y2 = ((170_000 - 60_000) * 1.02 - 60_000) * 1.02
+        assert plan2.years[2].from_cash == pytest.approx(expected_y2, abs=1.0)
 
 
 # ---------------------------------------------------------------------------

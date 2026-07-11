@@ -290,9 +290,10 @@ class TaxEngine:
             # Assumed marginal rate on future RMDs, used to estimate Roth
             # conversion savings (at 73+ with SS income, 22-24% is typical).
             "assumed_rmd_marginal_rate": 0.24,
-            # Nominal yield on the cash bucket in the withdrawal plan
-            # (checking/savings/HYSA — not market return).
-            "cash_yield_rate": 0.03,
+            # REAL yield on the cash bucket in the withdrawal plan. Default 0:
+            # cash holds purchasing power (HYSA ≈ inflation). Positive only if
+            # cash is parked meaningfully above inflation.
+            "cash_yield_rate": 0.0,
         }
         if config.custom_assumptions and "tax" in config.custom_assumptions:
             defaults.update(config.custom_assumptions["tax"])
@@ -630,6 +631,14 @@ class TaxEngine:
           dollars are Roth-converted up to the target bracket ceiling
           (bracket-fill), controlled by roth_conversions_enabled.
 
+        REAL-TERMS frame (today's dollars), consistent with the projection
+        engine and Monte Carlo: spending stays flat (constant purchasing
+        power), balances compound at the REAL return, and the tax brackets /
+        standard deduction stay frozen at today's levels — which is the
+        correct real-terms model because the IRS indexes them to inflation
+        annually (a nominal simulation against frozen brackets manufactures
+        phantom bracket creep).
+
         Simplification: taxes are reported but not deducted from balances
         (the plan shows the tax cost of the sequence, not net-of-tax wealth).
         """
@@ -650,7 +659,9 @@ class TaxEngine:
 
         annual_spending_cents = config.target_annual_spending or 12_000_000  # default $120K
         annual_need = annual_spending_cents / 100
-        cash_yield = tax_config.get("cash_yield_rate", 0.03)
+        # REAL yield on cash — default 0 (cash holds purchasing power at
+        # best; set positive for HYSA-parked cash, negative for checking).
+        cash_yield = tax_config.get("cash_yield_rate", 0.0)
 
         today = date.today()
         year_plans: list[WithdrawalYearPlan] = []
@@ -663,9 +674,9 @@ class TaxEngine:
         taxable_balance = accounts.taxable_balance
         cash_balance = accounts.already_taxed_balance
 
-        # Growth rate for accounts
-        annual_return = config.expected_annual_return / 100
+        # REAL growth rate for invested balances: (1+nominal)/(1+inflation) − 1
         inflation = config.expected_inflation_rate / 100
+        annual_return = (1 + config.expected_annual_return / 100) / (1 + inflation) - 1
 
         for yr in range(years):
             current_year = today.year + yr
@@ -673,8 +684,8 @@ class TaxEngine:
             age = self._compute_age(config, current_date)
             is_retired = retirement_date and current_date >= retirement_date
 
-            # Inflation-adjusted spending need
-            spending_need = annual_need * ((1 + inflation) ** yr)
+            # Spending: flat in real terms (constant purchasing power)
+            spending_need = annual_need
 
             # Income from sources (SS, pension, rental, etc.)
             earned_income = 0.0
@@ -694,7 +705,9 @@ class TaxEngine:
                 if annual <= 0:
                     continue
                 if src.growth_rate and yr > 0:
-                    annual *= (1 + src.growth_rate / 100) ** yr
+                    # growth_rate is a NOMINAL raise — deflate to real
+                    real_growth = (1 + src.growth_rate / 100) / (1 + inflation) - 1
+                    annual *= (1 + real_growth) ** yr
 
                 if src.income_type.value == "social_security":
                     ss_income += annual
