@@ -109,6 +109,7 @@ Things that will cause bugs if you don't know them.
 - Mortgage recast (legacy): `miami_sale.monthly_cost` must be the ORIGINAL pre-recast value (engine adjusts it).
 - Cash can go negative (model allows it to show bridge stress; frontend clamps at 0).
 - One-off cashflow events dated before today are dropped (not clamped to month 0).
+- Monte Carlo (`monte_carlo.py`) shares the real-terms frame: lognormal nominal returns + correlated stochastic inflation (ρ=−0.25) → real return per year; spending/income/SS flat real. Vol/correlation overrides live in `custom_assumptions.monte_carlo`. Do NOT reintroduce nominal `(1+i)**yr` multipliers on flows — that was the pre-Jul-2026 double-count bug.
 
 **Config & scenarios:**
 - FIRE config is single-row table. Config page saves to BASE config, not active scenario overrides.
