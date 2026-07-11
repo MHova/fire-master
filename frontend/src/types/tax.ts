@@ -108,6 +108,8 @@ export interface RothConversionPlan {
   estimated_tax_saved: number;
   target_bracket_rate: number;
   conversion_window: string;
+  /** Assumed future-RMD marginal rate behind estimated_tax_saved. */
+  assumed_rmd_marginal_rate: number;
 }
 
 // --- Tax Scenario ---

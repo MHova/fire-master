@@ -491,6 +491,9 @@ export default function TaxPlanningPage() {
                   <span className="text-sm font-mono font-bold text-[var(--green)]">
                     {fmtCompact(roth.estimated_tax_saved)}
                   </span>
+                  <span className="text-[10px] text-[var(--text-secondary)] block">
+                    vs {fmtPct(roth.assumed_rmd_marginal_rate)} at RMDs
+                  </span>
                 </div>
               </div>
             </div>

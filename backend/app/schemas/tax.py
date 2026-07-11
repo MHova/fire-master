@@ -116,6 +116,9 @@ class RothConversionPlanResponse(BaseModel):
     estimated_tax_saved: float
     target_bracket_rate: float
     conversion_window: str
+    # Savings = converted × this assumed future-RMD marginal rate − tax paid.
+    # Config-driven (custom_assumptions.tax.assumed_rmd_marginal_rate).
+    assumed_rmd_marginal_rate: float = 0.24
 
 
 # --- ACA Analysis ---

@@ -214,9 +214,12 @@ class RothConversionPlan:
     years: list[RothConversionYear]
     total_converted: float
     total_tax_paid: float
-    estimated_tax_saved: float  # vs. withdrawing at marginal rate later
+    estimated_tax_saved: float  # vs. withdrawing at assumed_rmd_marginal_rate later
     target_bracket_rate: float
     conversion_window: str  # e.g., "age 52-67"
+    # The savings estimate is converted × this rate − tax paid; surfaced so
+    # the UI can disclose the assumption (config: tax.assumed_rmd_marginal_rate).
+    assumed_rmd_marginal_rate: float = 0.24
 
 
 @dataclass
@@ -258,6 +261,9 @@ class TaxEngine:
             "standard_deduction": None,  # will use DEFAULT_STANDARD_DEDUCTION
             "household_size": 1,
             "cost_basis_pct": 0.60,  # estimated % of taxable balance that is cost basis (not taxed)
+            # Assumed marginal rate on future RMDs, used to estimate Roth
+            # conversion savings (at 73+ with SS income, 22-24% is typical).
+            "assumed_rmd_marginal_rate": 0.24,
         }
         if config.custom_assumptions and "tax" in config.custom_assumptions:
             defaults.update(config.custom_assumptions["tax"])
@@ -575,17 +581,28 @@ class TaxEngine:
     # -----------------------------------------------------------------------
 
     async def optimize_withdrawal_sequence(
-        self, years: int = 10,
+        self,
+        years: int = 10,
+        target_bracket_rate: float = 0.22,
+        roth_conversions_enabled: bool = True,
     ) -> WithdrawalPlan:
-        """Produce a year-by-year tax-optimized withdrawal plan.
+        """Produce a year-by-year tax-aware withdrawal plan.
 
-        Classic order (adjusted per year):
-        1. Taxable accounts first (only gains portion taxed at preferential rates)
-        2. Tax-deferred next (ordinary income, fill lower brackets)
+        Withdrawals follow a fixed order each year:
+        1. Taxable accounts first (only the gains portion taxed, at LTCG rates)
+        2. Tax-deferred next (ordinary income)
         3. Tax-free (Roth) last (preserve tax-free growth)
+        4. Cash as absolute last resort
 
-        But in low-income early retirement, we draw from deferred to fill
-        lower brackets, and consider Roth conversions.
+        On top of the fixed order, two tax-aware adjustments per year:
+        - RMDs force a minimum deferred withdrawal at rmd_start_age+; any
+          excess above the spending need is redeposited into taxable.
+        - During the golden window (retired, pre-SS, pre-RMD), tax-deferred
+          dollars are Roth-converted up to the target bracket ceiling
+          (bracket-fill), controlled by roth_conversions_enabled.
+
+        Simplification: taxes are reported but not deducted from balances
+        (the plan shows the tax cost of the sequence, not net-of-tax wealth).
         """
         from app.engines.fire_projections import FireProjectionsEngine
 
@@ -719,9 +736,39 @@ class TaxEngine:
                     extra_rmd = rmd_amount - from_deferred
                     from_deferred += extra_rmd
                     deferred_balance -= extra_rmd
+                    # The forced excess isn't spent — it lands in taxable
+                    # (gross redeposit; taxes are reported, not deducted).
+                    taxable_balance += extra_rmd
 
-            # Compute taxes
-            ordinary_income = earned_income + ss_income * 0.85 + pension_income + from_deferred + other_income
+            # Golden-window Roth conversion: retired, pre-SS, pre-RMD — fill
+            # ordinary income up to the target bracket ceiling. Conversion is
+            # taxed as ordinary income this year but moves dollars out of the
+            # future-RMD pool into tax-free growth.
+            if (
+                roth_conversions_enabled
+                and is_retired
+                and ss_income == 0
+                and age < config.rmd_start_age
+                and deferred_balance > 0
+            ):
+                target_ceiling = 0.0
+                for bracket in brackets:
+                    if bracket["rate"] <= target_bracket_rate:
+                        target_ceiling = bracket["up_to"]
+                ordinary_so_far = (
+                    earned_income + ss_income * 0.85 + pension_income
+                    + from_deferred + other_income
+                )
+                # Fill so POST-DEDUCTION taxable income lands exactly at the
+                # bracket ceiling — the conversion also absorbs any unused
+                # standard deduction.
+                room = max(0.0, target_ceiling + std_deduction - ordinary_so_far)
+                roth_conversion = min(room, deferred_balance)
+                deferred_balance -= roth_conversion
+                roth_balance += roth_conversion
+
+            # Compute taxes (Roth conversion counts as ordinary income)
+            ordinary_income = earned_income + ss_income * 0.85 + pension_income + from_deferred + roth_conversion + other_income
             taxable_income = max(0, ordinary_income - std_deduction)
 
             federal_breakdown = self.compute_federal_tax(taxable_income, filing_status, brackets)
@@ -813,6 +860,7 @@ class TaxEngine:
                 years=[], total_converted=0, total_tax_paid=0,
                 estimated_tax_saved=0, target_bracket_rate=target_bracket_rate,
                 conversion_window="N/A — retirement date or DOB not set",
+                assumed_rmd_marginal_rate=tax_config.get("assumed_rmd_marginal_rate", 0.24),
             )
 
         # Conversion window: retirement → SS start
@@ -825,6 +873,7 @@ class TaxEngine:
                 years=[], total_converted=0, total_tax_paid=0,
                 estimated_tax_saved=0, target_bracket_rate=target_bracket_rate,
                 conversion_window="No conversion window — already past SS start age",
+                assumed_rmd_marginal_rate=tax_config.get("assumed_rmd_marginal_rate", 0.24),
             )
 
         # Find the bracket ceiling for the target rate
@@ -855,9 +904,12 @@ class TaxEngine:
                     continue  # not yet started
                 baseline_income += src.annual_amount / 100
 
-            # How much room to fill up to target bracket (after standard deduction)
+            # Room to fill so POST-DEDUCTION taxable income lands exactly at
+            # the target bracket ceiling. When baseline income is below the
+            # standard deduction, the conversion absorbs the unused deduction
+            # (converting $X with zero income leaves taxable at X − std_ded).
             taxable_baseline = max(0, baseline_income - std_deduction)
-            room_to_target = max(0, target_ceiling - taxable_baseline)
+            room_to_target = max(0, target_ceiling + std_deduction - baseline_income)
 
             # Convert up to the room available (don't exceed deferred balance)
             conversion = min(room_to_target, deferred_balance)
@@ -865,8 +917,8 @@ class TaxEngine:
                 current += relativedelta(years=1)
                 continue
 
-            # Tax on conversion (it's treated as ordinary income)
-            total_taxable = taxable_baseline + conversion
+            # Tax on conversion (ordinary income, after standard deduction)
+            total_taxable = max(0, baseline_income + conversion - std_deduction)
             tax_with = self.compute_federal_tax(total_taxable, filing_status, brackets)
             tax_without = self.compute_federal_tax(taxable_baseline, filing_status, brackets)
             conversion_tax = tax_with.total_federal_tax - tax_without.total_federal_tax
@@ -896,10 +948,11 @@ class TaxEngine:
 
             current += relativedelta(years=1)
 
-        # Estimate tax savings: what would the marginal rate be on RMDs later?
-        # At 73+ with SS income, you're likely in 22-24% bracket.
-        # Without conversion, those RMDs are taxed at that rate.
-        estimated_rmd_rate = 0.24  # conservative estimate
+        # Estimate tax savings: without conversion, these dollars come out
+        # later as RMDs taxed at the assumed marginal rate (config-driven,
+        # tax.assumed_rmd_marginal_rate — a disclosed estimate, not a full
+        # lifetime tax simulation).
+        estimated_rmd_rate = tax_config.get("assumed_rmd_marginal_rate", 0.24)
         tax_if_rmd = cumulative_converted * estimated_rmd_rate
         tax_saved = tax_if_rmd - total_tax
 
@@ -913,6 +966,7 @@ class TaxEngine:
             estimated_tax_saved=round(max(0, tax_saved), 2),
             target_bracket_rate=target_bracket_rate,
             conversion_window=f"age {int(start_age)}-{int(end_age)}",
+            assumed_rmd_marginal_rate=estimated_rmd_rate,
         )
 
     # -----------------------------------------------------------------------

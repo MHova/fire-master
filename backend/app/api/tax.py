@@ -33,12 +33,25 @@ async def get_bracket_analysis(
 @router.get("/withdrawal-plan", response_model=WithdrawalPlanResponse)
 async def get_withdrawal_plan(
     years: int = Query(default=10, ge=1, le=50),
+    target_bracket: float = Query(
+        default=0.22, ge=0.10, le=0.37,
+        description="Golden-window Roth conversions fill up to this bracket rate",
+    ),
+    roth_conversions: bool = Query(
+        default=True,
+        description="Enable bracket-fill Roth conversions during the golden window",
+    ),
     _user: str = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Optimized year-by-year withdrawal sequence."""
+    """Tax-aware year-by-year withdrawal sequence (fixed order + RMDs +
+    golden-window bracket-fill Roth conversions)."""
     engine = TaxEngine(db)
-    plan = await engine.optimize_withdrawal_sequence(years=years)
+    plan = await engine.optimize_withdrawal_sequence(
+        years=years,
+        target_bracket_rate=target_bracket,
+        roth_conversions_enabled=roth_conversions,
+    )
     return plan
 
 
