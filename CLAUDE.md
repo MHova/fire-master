@@ -98,7 +98,7 @@ Things that will cause bugs if you don't know them.
 - Monarch assigns a NEW `external_id` when a pending txn posts (and often refines the merchant name), so the pending row becomes an orphan. `reconcile_transactions` deletes orphans (DB MONARCH rows absent from Monarch's current set for the window) — that's how pending/posted dups get cleaned. **A pure-upsert backfill leaves orphans behind**, so always follow `sync_transactions(start_date=...)` with `reconcile_transactions(start_date=...)`. NB: external_id uniqueness does NOT prevent these dups (two IDs, one real charge); to detect, diff our `external_id`s against Monarch's current set, not by merchant name (spelling drifts).
 
 **Projection engine (read before touching):**
-- Two paradigms: `project_lifetime()` = nominal, `project_wealth_pools()` = real-terms. Do NOT copy patterns between them.
+- EVERYTHING is real-terms as of Jul 2026 — `project_lifetime()` (single-pool, drives `/timeline` + scenario what-ifs) and `project_wealth_pools()` (pool-aware, the trusted engine) now share the frame; they differ in STRUCTURE. Do NOT copy mechanics between them, and never inflate a flow with `(1+i)**yr`.
 - `project_wealth_pools()` is the trusted model. All rates REAL (after-inflation). Spending flat = constant purchasing power. SS flat = COLA offsets inflation.
 - IRA-A earns its configured real growth rate; SEPP payments follow the IRS amortization calc — different things (investment return vs tax calc). Don't change financial assumptions without solid reasoning.
 - ALL rates in `custom_assumptions.projection` — zero hardcoded values. Engine defaults are neutral (zero/disabled); everything meaningful comes from config.

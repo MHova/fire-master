@@ -485,7 +485,7 @@ export default function TaxPlanningPage() {
               Tax Planning
             </h2>
             <p className="text-sm text-[var(--text-secondary)] mt-1">
-              Optimize withdrawal strategy & Roth conversions
+              Withdrawal strategy & Roth conversions &middot; projections in today&rsquo;s dollars
             </p>
           </div>
           <Link

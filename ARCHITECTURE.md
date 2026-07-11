@@ -167,6 +167,8 @@ This is a flywheel: more data → better analysis → better decisions → more 
 
 ## Projection Engine: Spending & Funding Waterfall
 
+**Every projection in FIREMaster is REAL-TERMS — all amounts are today's dollars.** Spending stays flat (constant purchasing power), Social Security and pensions stay flat (COLA offsets inflation), configured rates are real (after inflation), and nominal inputs (expected return / inflation) are deflated at the point of use: `real = (1 + nominal) / (1 + inflation) − 1`. This holds across the wealth-pool projection, the single-pool lifetime timeline, Monte Carlo, and the tax engine's withdrawal plan (where tax brackets stay frozen at today's levels — correct in real terms, since the IRS inflation-indexes them annually).
+
 The core of the retirement projection (`project_wealth_pools()` in `fire_projections.py`) simulates month-by-month cash flows across wealth pools: Cash, IRA-A (SEPP), IRA-B (growth), RRSP/RRIF, Real Estate, and — in scenarios that sell property into the market — a Taxable brokerage pool. Understanding the funding waterfall is essential to interpreting projection results.
 
 ### Monthly Expense Formula

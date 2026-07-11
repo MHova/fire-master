@@ -1,11 +1,17 @@
 """FIRE Projections Engine — lifetime projections, scenario modeling, readiness scoring.
 
-This module contains two modeling paradigms:
-- project_lifetime() / compute_fire_number(): NOMINAL model — spending inflated, returns nominal,
-  SS gets COLA. Used for FIRE number and 3-scenario timeline.
-- project_wealth_pools(): REAL (today's dollars) model — spending is flat (constant purchasing
-  power), SS is flat (COLA offsets inflation), all rates are real (after-inflation).
-  Used for the retirement dashboard, bridge chart, and scenario comparisons.
+EVERY projection in this module is REAL-TERMS (today's dollars): spending is
+flat (constant purchasing power), SS/pension are flat (COLA offsets
+inflation), and balances compound at real (after-inflation) rates. Nominal
+config inputs (expected_annual_return / expected_inflation_rate) are deflated
+at the point of use: real = (1 + nominal) / (1 + inflation) − 1.
+
+Two modeling STRUCTURES remain (do not copy mechanics between them):
+- project_lifetime(): single-pool net-worth simulation. Used for the
+  3-scenario timeline and what-if comparisons. (Was nominal until Jul 2026.)
+- project_wealth_pools(): pool-aware model (cash / taxable / IRA-A / IRA-B /
+  RRSP / real estate). The trusted engine for the retirement dashboard,
+  bridge chart, and scenario comparisons.
 """
 
 import logging
@@ -72,9 +78,6 @@ SPENDING_PHASES = [
     (80, 0.85),   # Slower pace: 85% of base
 ]
 SPENDING_FLOOR = 0.75  # Age 80+: 75% of base
-
-# Historical average Social Security COLA (~2.5%/yr)
-SS_COLA_RATE = 0.025
 
 # fire_role → net worth category mapping
 LIQUID_ROLES = {"cash_reserve", "operating_account", "speculative"}
@@ -223,7 +226,7 @@ class FireProjectionsEngine:
         Uses geometric mean return (volatility-adjusted) to match Monte Carlo
         median outcomes: geo_return ≈ arithmetic_return - σ²/2.
         """
-        from app.engines.monte_carlo import HISTORICAL_STD_DEV
+        from app.engines.monte_carlo import DEFAULT_RETURN_STD
 
         config = await self.get_effective_config()
         nw_engine = NetWorthEngine(self.db)
@@ -234,7 +237,7 @@ class FireProjectionsEngine:
 
         # Real return rate with volatility drag (geometric mean)
         arithmetic_real = (config.expected_annual_return - config.expected_inflation_rate) / 100.0
-        volatility_drag = (HISTORICAL_STD_DEV ** 2) / 2
+        volatility_drag = (DEFAULT_RETURN_STD ** 2) / 2
         real_return = arithmetic_real - volatility_drag
 
         # Years in retirement
@@ -368,8 +371,9 @@ class FireProjectionsEngine:
         current_date: date,
         retirement_date: date | None,
         years_from_start: float,
+        inflation_pct: float = 0.0,
     ) -> int:
-        """Compute monthly income from sources at a given date (in cents)."""
+        """Compute monthly REAL income from sources at a given date (in cents)."""
         total = 0
         for src in sources:
             # Check if source is active at this date
@@ -385,9 +389,10 @@ class FireProjectionsEngine:
 
             monthly = src.annual_amount / 12
 
-            # Apply growth rate
+            # growth_rate is a NOMINAL raise — deflate to real before compounding
             if src.growth_rate and years_from_start > 0:
-                monthly = monthly * ((1 + src.growth_rate / 100) ** years_from_start)
+                real_growth = (1 + src.growth_rate / 100) / (1 + inflation_pct / 100) - 1
+                monthly = monthly * ((1 + real_growth) ** years_from_start)
 
             total += int(monthly)
         return total
@@ -397,7 +402,16 @@ class FireProjectionsEngine:
         scenario: str = "moderate",
         overrides: ScenarioInput | None = None,
     ) -> LifetimeProjectionResponse:
-        """Full lifecycle projection: accumulation → retirement → end of life."""
+        """Full lifecycle projection: accumulation → retirement → end of life.
+
+        REAL-TERMS (today's dollars): the portfolio compounds at the real
+        return derived from the scenario's nominal return and inflation
+        ((1+r)/(1+i) − 1); spending stays flat (constant purchasing power,
+        plus the retirement phase step-down); SS/pension stay flat (COLA
+        offsets inflation). Scenario adjusters shift the NOMINAL inputs
+        before deflation, so "conservative" (return −2, inflation +1) still
+        squeezes the real return from both sides.
+        """
         config = await self.get_effective_config()
         nw_engine = NetWorthEngine(self.db)
         nw = await nw_engine.calculate_current()
@@ -448,8 +462,9 @@ class FireProjectionsEngine:
             retirement_date = config.date_of_birth + relativedelta(years=retirement_age)
 
         today = date.today()
-        monthly_return = (1 + annual_return / 100) ** (1 / 12) - 1
-        monthly_inflation = (1 + inflation / 100) ** (1 / 12) - 1
+        # Deflate the (scenario-adjusted) nominal return to REAL, then to monthly
+        real_return = (1 + annual_return / 100) / (1 + inflation / 100) - 1
+        monthly_return = (1 + real_return) ** (1 / 12) - 1
 
         # Determine end date from life expectancy
         if config.date_of_birth:
@@ -482,8 +497,9 @@ class FireProjectionsEngine:
             is_retired = retirement_date and current >= retirement_date
             phase = "retirement" if is_retired else "accumulation"
 
-            # Monthly spending with inflation + retirement phase adjustment
-            monthly_spending = monthly_spending_base * ((1 + monthly_inflation) ** month_idx)
+            # Monthly spending: flat real (constant purchasing power) with
+            # the retirement phase step-down
+            monthly_spending = monthly_spending_base
             if is_retired:
                 monthly_spending *= _spending_multiplier(age)
 
@@ -496,45 +512,39 @@ class FireProjectionsEngine:
                     if age_now < config.medicare_start_age:
                         monthly_spending += config.healthcare_monthly_cost
 
-            # Monthly income
+            # Monthly income (flat real throughout)
             if is_retired:
                 # Post-retirement: only SS, pension, rental, dividends
                 if use_sources:
                     monthly_income = self._income_at_month(
-                        income_sources, current, retirement_date, years_elapsed
+                        income_sources, current, retirement_date, years_elapsed, inflation
                     )
                 else:
                     monthly_income = 0
 
-                # Social Security (with COLA)
+                # Social Security — flat real (COLA offsets inflation)
                 if config.social_security_monthly and config.date_of_birth:
                     ss_start = config.date_of_birth + relativedelta(
                         years=config.social_security_start_age
                     )
                     if current >= ss_start:
-                        ss_years = (current - ss_start).days / 365.25
-                        cola = (1 + SS_COLA_RATE) ** ss_years
-                        monthly_income += int(config.social_security_monthly * cola)
+                        monthly_income += int(config.social_security_monthly)
 
-                # Pension (with COLA)
+                # Pension — flat real (COLA offsets inflation)
                 if config.pension_monthly and config.pension_start_age and config.date_of_birth:
                     pension_start = config.date_of_birth + relativedelta(
                         years=config.pension_start_age
                     )
                     if current >= pension_start:
-                        pension_years = (current - pension_start).days / 365.25
-                        cola = (1 + SS_COLA_RATE) ** pension_years
-                        monthly_income += int(config.pension_monthly * cola)
+                        monthly_income += int(config.pension_monthly)
             else:
-                # Pre-retirement: full income
+                # Pre-retirement: full income, flat real
                 if use_sources:
                     monthly_income = self._income_at_month(
-                        income_sources, current, retirement_date, years_elapsed
+                        income_sources, current, retirement_date, years_elapsed, inflation
                     )
                 else:
                     monthly_income = (annual_income_cents + income_adj_cents) / 12
-                    if monthly_income > 0 and years_elapsed > 0:
-                        monthly_income *= (1 + inflation / 100) ** years_elapsed
 
             # Net savings (pre-retirement) or withdrawal (post-retirement)
             monthly_savings = monthly_income - monthly_spending

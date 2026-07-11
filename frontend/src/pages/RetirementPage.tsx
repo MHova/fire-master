@@ -655,7 +655,7 @@ export default function RetirementPage() {
               Retirement
             </h2>
             <p className="text-sm text-[var(--text-secondary)] mt-1">
-              FIRE projections & lifetime planning
+              FIRE projections & lifetime planning &middot; all amounts in today&rsquo;s dollars
             </p>
           </div>
           <div className="flex items-center gap-2">

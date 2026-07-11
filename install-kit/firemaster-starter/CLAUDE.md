@@ -26,8 +26,12 @@ file, and guides. You work entirely through the HTTP API.
 - **Exception: the Properties API uses dollars as floats** (`value`, `loan_balance`,
   `purchase_price`). Don't multiply those by 100.
 - **Use `displayBalance`, not `currentBalance`** for an account's balance.
-- **Projection rates are REAL (after-inflation).** Flat spending = constant purchasing power; a
-  flat Social Security number assumes COLA offsets inflation. Don't "add inflation" on top.
+- **ALL projection outputs are REAL — today's dollars.** That covers every projection surface:
+  `/api/fire/wealth-projection`, `/api/fire/lifetime` + `/timeline`, `/api/tax/monte-carlo`
+  percentiles, and the `/api/tax/withdrawal-plan` year rows (its tax brackets stay frozen at
+  today's levels — correct in real terms, since the IRS inflation-indexes them). Configured
+  rates are REAL (after-inflation); flat spending = constant purchasing power; a flat Social
+  Security number assumes COLA offsets inflation. Don't "add inflation" on top, ever.
 - When unsure of a field's units or allowed values, **GET an existing record first** and mirror
   its shape rather than guessing.
 
