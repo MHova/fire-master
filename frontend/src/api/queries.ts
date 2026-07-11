@@ -52,6 +52,7 @@ import type {
   WithdrawalPlan,
   RothConversionPlan,
   MonteCarloResult,
+  SEPPResponse,
   TaxScenarioInput,
   TaxScenarioResponse,
 } from "../types/tax";
@@ -511,6 +512,31 @@ export function useMonteCarlo(runs: number = 1000) {
     queryKey: ["tax", "monte-carlo", runs],
     queryFn: () =>
       fetchJSON<MonteCarloResult>(`${BASE}/tax/monte-carlo?runs=${runs}`),
+  });
+}
+
+export interface SeppParams {
+  balance: number;
+  age: number;
+  rate: number; // decimal, e.g. 0.05
+  targetMonthly?: number;
+}
+
+export function useSeppCalculator(params: SeppParams | null) {
+  return useQuery({
+    queryKey: ["tax", "sepp", params],
+    queryFn: () => {
+      const q = new URLSearchParams({
+        balance: String(params!.balance),
+        age: String(params!.age),
+        rate: String(params!.rate),
+      });
+      if (params!.targetMonthly) q.set("target_monthly", String(params!.targetMonthly));
+      return fetchJSON<SEPPResponse>(`${BASE}/tax/sepp?${q.toString()}`);
+    },
+    enabled: params != null,
+    retry: false, // a 422 (rate above IRS cap) should surface, not retry
+    placeholderData: (prev) => prev, // keep last result visible while typing
   });
 }
 

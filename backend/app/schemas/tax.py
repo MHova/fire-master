@@ -198,3 +198,29 @@ class MonteCarloResponse(BaseModel):
     percentile_curves: list[PercentileCurvePoint]
     worst_final_nw: float
     best_final_nw: float
+
+
+# --- SEPP / 72(t) ---
+
+
+class SEPPMethodResult(BaseModel):
+    annual: float
+    monthly: float
+
+
+class SEPPReverseResult(BaseModel):
+    target_monthly: float
+    required_balance: float  # IRA-A size that yields the target (amortization)
+
+
+class SEPPResponse(BaseModel):
+    balance: float
+    age: int
+    rate: float
+    max_rate: float  # max(5%, 120% of mid-term AFR) — Notice 2022-6
+    life_expectancy: float  # Single Life Table divisor used
+    amortization: SEPPMethodResult
+    rmd_method: SEPPMethodResult  # year-1 value; redetermined annually by design
+    annuitization: SEPPMethodResult | None = None  # not implemented in v1
+    reverse: SEPPReverseResult | None = None
+    assumptions: dict

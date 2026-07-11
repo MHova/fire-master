@@ -1,11 +1,15 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   useBracketAnalysis,
   useWithdrawalPlan,
   useRothConversionPlan,
   useMonteCarlo,
+  useSeppCalculator,
+  useFireConfig,
+  useUpdateFireConfig,
 } from "../api/queries";
+import type { SeppParams } from "../api/queries";
 import Layout from "../components/Layout";
 import {
   AreaChart,
@@ -50,6 +54,293 @@ function StatCard({
       {sub && (
         <span className="text-xs text-[var(--text-secondary)]">{sub}</span>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// SEPP / 72(t) calculator card
+// ---------------------------------------------------------------------------
+
+function useDebounced<T>(value: T, ms: number): T {
+  const [v, setV] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setV(value), ms);
+    return () => clearTimeout(t);
+  }, [value, ms]);
+  return v;
+}
+
+const SEPP_INPUT_CLASS =
+  "w-full bg-[var(--bg-secondary)] border border-[var(--border)] rounded px-3 py-1.5 text-sm font-mono text-[var(--text-primary)] focus:outline-none focus:border-[var(--blue)]";
+
+function SeppCalculatorCard({ deferredBalance }: { deferredBalance?: number }) {
+  const { data: fireConfig } = useFireConfig();
+  const updateConfig = useUpdateFireConfig();
+
+  const [balanceStr, setBalanceStr] = useState("");
+  const [ageStr, setAgeStr] = useState("");
+  const [rateStr, setRateStr] = useState("5");
+  const [targetStr, setTargetStr] = useState("");
+  const [confirming, setConfirming] = useState(false);
+
+  // Prefill once per field: tax-deferred balance + the age the owner turns
+  // this year (Notice 2022-6: age on your birthday in the first distribution
+  // year). Separate flags — the two data sources load at different times.
+  const balanceSeeded = useRef(false);
+  const ageSeeded = useRef(false);
+  useEffect(() => {
+    if (!balanceSeeded.current && deferredBalance != null && deferredBalance > 0) {
+      setBalanceStr(String(Math.round(deferredBalance)));
+      balanceSeeded.current = true;
+    }
+    if (!ageSeeded.current && fireConfig?.date_of_birth) {
+      const birthYear = new Date(fireConfig.date_of_birth).getFullYear();
+      setAgeStr(String(new Date().getFullYear() - birthYear));
+      ageSeeded.current = true;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deferredBalance, fireConfig]);
+
+  const params = useMemo<SeppParams | null>(() => {
+    const balance = parseFloat(balanceStr);
+    const age = parseInt(ageStr, 10);
+    const rate = parseFloat(rateStr) / 100;
+    if (!(balance > 0) || !(age >= 21 && age <= 80) || !(rate >= 0)) return null;
+    const target = parseFloat(targetStr);
+    return {
+      balance,
+      age,
+      rate,
+      targetMonthly: target > 0 ? target : undefined,
+    };
+  }, [balanceStr, ageStr, rateStr, targetStr]);
+
+  const debouncedParams = useDebounced(params, 400);
+  const { data: sepp, error } = useSeppCalculator(debouncedParams);
+
+  // What "Apply to plan" writes: reverse mode when a target is set.
+  const applyValues = useMemo(() => {
+    if (!sepp) return null;
+    if (sepp.reverse) {
+      return {
+        monthly: Math.round(sepp.reverse.target_monthly),
+        iraA: Math.round(sepp.reverse.required_balance),
+      };
+    }
+    return {
+      monthly: Math.round(sepp.amortization.monthly),
+      iraA: Math.round(sepp.balance),
+    };
+  }, [sepp]);
+
+  useEffect(() => setConfirming(false), [applyValues?.monthly, applyValues?.iraA]);
+
+  const apply = () => {
+    if (!applyValues || !fireConfig) return;
+    if (!confirming) {
+      setConfirming(true);
+      return;
+    }
+    // Config PATCH replaces custom_assumptions wholesale — spread the FULL
+    // existing object so unmanaged keys survive (CLAUDE.md merge contract).
+    const ca = (fireConfig.custom_assumptions ?? {}) as Record<string, unknown>;
+    const seppBlock = (ca.sepp ?? {}) as Record<string, unknown>;
+    updateConfig.mutate(
+      {
+        custom_assumptions: {
+          ...ca,
+          sepp: {
+            ...seppBlock,
+            sepp_monthly: applyValues.monthly,
+            ira_a_balance: applyValues.iraA,
+          },
+        },
+      },
+      { onSuccess: () => setConfirming(false) },
+    );
+  };
+
+  return (
+    <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-4">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="text-sm font-medium text-[var(--text-secondary)]">
+            SEPP / 72(t) Calculator
+          </h3>
+          <span className="text-xs text-[var(--text-secondary)]">
+            Penalty-free withdrawals before 59½ &middot; Rev. Rul. 2002-62, Notice 2022-6
+          </span>
+        </div>
+        {sepp && (
+          <div className="text-right">
+            <span className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)] block">
+              Life Expectancy
+            </span>
+            <span className="text-sm font-mono font-bold text-[var(--text-primary)]">
+              {sepp.life_expectancy} yrs
+            </span>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Inputs */}
+        <div className="space-y-3">
+          <div>
+            <label className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)] block mb-1">
+              IRA Balance ($)
+            </label>
+            <input
+              type="number"
+              value={balanceStr}
+              onChange={(e) => setBalanceStr(e.target.value)}
+              className={SEPP_INPUT_CLASS}
+              placeholder="400000"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)] block mb-1">
+                Age
+              </label>
+              <input
+                type="number"
+                value={ageStr}
+                onChange={(e) => setAgeStr(e.target.value)}
+                className={SEPP_INPUT_CLASS}
+                placeholder="54"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)] block mb-1">
+                Rate (%)
+              </label>
+              <input
+                type="number"
+                step="0.1"
+                value={rateStr}
+                onChange={(e) => setRateStr(e.target.value)}
+                className={SEPP_INPUT_CLASS}
+                placeholder="5"
+              />
+            </div>
+          </div>
+          <p className="text-[10px] text-[var(--text-secondary)] leading-relaxed">
+            Age = your age on your birthday in the first distribution year.
+            IRS rate cap: the greater of 5% or 120% of the federal mid-term
+            rate — 5% is always allowed.
+          </p>
+          {error && (
+            <p className="text-[11px] text-[var(--red)]">{(error as Error).message}</p>
+          )}
+        </div>
+
+        {/* Method comparison */}
+        <div className="space-y-2">
+          <span className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)] block">
+            Annual Payment by IRS Method
+          </span>
+          {sepp ? (
+            <>
+              <div className="flex items-baseline justify-between px-3 py-2 rounded border border-[rgba(46,139,110,0.35)] bg-[rgba(46,139,110,0.06)]">
+                <div>
+                  <span className="text-xs font-medium text-[var(--text-primary)] block">
+                    Fixed Amortization
+                  </span>
+                  <span className="text-[10px] text-[var(--text-secondary)]">
+                    highest payment, fixed for the series
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-sm font-mono font-bold text-[var(--green)] block">
+                    {fmt(sepp.amortization.monthly)}/mo
+                  </span>
+                  <span className="text-[10px] font-mono text-[var(--text-secondary)]">
+                    {fmt(sepp.amortization.annual)}/yr
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-baseline justify-between px-3 py-2 rounded border border-[var(--border)]">
+                <div>
+                  <span className="text-xs font-medium text-[var(--text-primary)] block">
+                    RMD Method
+                  </span>
+                  <span className="text-[10px] text-[var(--text-secondary)]">
+                    recalculated annually, varies with balance
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-sm font-mono font-bold text-[var(--text-primary)] block">
+                    {fmt(sepp.rmd_method.monthly)}/mo
+                  </span>
+                  <span className="text-[10px] font-mono text-[var(--text-secondary)]">
+                    {fmt(sepp.rmd_method.annual)}/yr
+                  </span>
+                </div>
+              </div>
+            </>
+          ) : (
+            <p className="text-xs text-[var(--text-secondary)]">
+              Enter a balance, age, and rate.
+            </p>
+          )}
+        </div>
+
+        {/* Reverse solver + apply */}
+        <div className="space-y-3">
+          <div>
+            <label className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)] block mb-1">
+              Reverse: I need ($/mo)
+            </label>
+            <input
+              type="number"
+              value={targetStr}
+              onChange={(e) => setTargetStr(e.target.value)}
+              className={SEPP_INPUT_CLASS}
+              placeholder="2800"
+            />
+          </div>
+          {sepp?.reverse && (
+            <div className="px-3 py-2 rounded border border-[rgba(61,110,158,0.35)] bg-[rgba(61,110,158,0.06)]">
+              <span className="text-xs text-[var(--text-primary)] block">
+                Fund IRA-A with{" "}
+                <span className="font-mono font-bold text-[var(--blue)]">
+                  {fmt(sepp.reverse.required_balance)}
+                </span>
+              </span>
+              <span className="text-[10px] text-[var(--text-secondary)]">
+                The dual-IRA split: IRA-A pays your SEPP; the rest stays in
+                IRA-B compounding untouched.
+              </span>
+            </div>
+          )}
+          {applyValues && (
+            <button
+              onClick={apply}
+              disabled={updateConfig.isPending}
+              className={`w-full px-3 py-2 rounded text-xs font-medium border transition-colors ${
+                confirming
+                  ? "border-[var(--yellow)] text-[var(--yellow)] bg-[rgba(160,125,26,0.08)]"
+                  : "border-[var(--border)] text-[var(--text-primary)] hover:border-[var(--green)]"
+              }`}
+            >
+              {updateConfig.isPending
+                ? "Applying…"
+                : confirming
+                  ? `Confirm: write ${fmt(applyValues.monthly)}/mo + ${fmtCompact(applyValues.iraA)} IRA-A`
+                  : "Apply to plan"}
+            </button>
+          )}
+          <p className="text-[10px] text-[var(--text-secondary)]">
+            Writes sepp_monthly + ira_a_balance to the BASE config (scenarios
+            keep their own overrides). Projections refresh automatically.
+          </p>
+          {updateConfig.isSuccess && !confirming && (
+            <p className="text-[11px] text-[var(--green)]">Applied — SEPP plan updated.</p>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -470,6 +761,9 @@ export default function TaxPlanningPage() {
             </div>
           </div>
         </div>
+
+        {/* SEPP / 72(t) Calculator */}
+        <SeppCalculatorCard deferredBalance={brackets?.account_balances.tax_deferred} />
 
         {/* Roth Conversion Ladder */}
         {roth && roth.years.length > 0 && (

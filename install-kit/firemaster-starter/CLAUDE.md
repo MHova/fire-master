@@ -74,3 +74,13 @@ You can pull anything (`/api/fire/*`, `/api/spending/*`, `/api/properties`, `/ap
 `/api/transactions`) and write the user local artifacts — markdown reports, CSVs, charts. That
 composability (API + math + files, with memory across a session) is the whole point of using an
 agent here instead of a chat box bolted into the app.
+
+Notable tax endpoints:
+- `GET /api/tax/sepp?balance=&age=&rate=[&target_monthly=&afr_120=]` — SEPP/72(t) calculator
+  (Rev. Rul. 2002-62 / Notice 2022-6). Forward: payment per IRS method (fixed amortization,
+  RMD method; post-2022 Single Life Table). Reverse: `target_monthly` → the IRA-A balance that
+  yields it (the dual-IRA split). Rate is capped at max(5%, 120% of the federal mid-term AFR).
+  Feed the result into `custom_assumptions.sepp` (`sepp_monthly`, `ira_a_balance`) to drive
+  the wealth projection's SEPP bridge.
+- `GET /api/tax/withdrawal-plan?years=&target_bracket=&roth_conversions=` — tax-aware
+  withdrawal sequencing with golden-window bracket-fill Roth conversions.

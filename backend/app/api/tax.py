@@ -1,17 +1,19 @@
 """Tax planning API routes."""
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_current_user
 from app.core.database import get_db
 from app.engines.monte_carlo import MonteCarloEngine
+from app.engines.sepp import compute_sepp
 from app.engines.tax_engine import TaxEngine
 from app.schemas.tax import (
     ACAAnalysisResponse,
     BracketAnalysisResponse,
     MonteCarloResponse,
     RothConversionPlanResponse,
+    SEPPResponse,
     TaxScenarioInput,
     TaxScenarioResponse,
     WithdrawalPlanResponse,
@@ -108,6 +110,31 @@ async def run_tax_scenario(
         extra_income=data.extra_income,
         extra_deduction=data.extra_deduction,
     )
+
+
+@router.get("/sepp", response_model=SEPPResponse)
+async def sepp_calculator(
+    balance: float = Query(..., gt=0, description="IRA balance to compute SEPP on (dollars)"),
+    age: int = Query(..., ge=21, le=80, description="Owner's age on their birthday in the first distribution year"),
+    rate: float = Query(default=0.05, ge=0, description="Interest rate; capped at max(5%, 120% mid-term AFR)"),
+    target_monthly: float | None = Query(default=None, gt=0, description="Reverse solve: monthly payment you need — returns the required IRA-A balance"),
+    afr_120: float | None = Query(default=None, ge=0, description="120% of the federal mid-term rate, if you want a cap above 5%"),
+    _user: str = Depends(get_current_user),
+):
+    """SEPP / 72(t) calculator — Rev. Rul. 2002-62 as modified by Notice 2022-6.
+
+    Forward: balance + age + rate → annual/monthly payment per IRS method
+    (fixed amortization, RMD method). Reverse: target monthly payment →
+    required IRA-A balance (the dual-IRA split solver). Pure calculation,
+    no data stored.
+    """
+    try:
+        return compute_sepp(
+            balance=balance, age=age, rate=rate,
+            target_monthly=target_monthly, afr_120_mid_term=afr_120,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
 
 
 @router.get("/monte-carlo", response_model=MonteCarloResponse)

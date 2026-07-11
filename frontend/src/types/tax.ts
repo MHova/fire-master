@@ -112,6 +112,34 @@ export interface RothConversionPlan {
   assumed_rmd_marginal_rate: number;
 }
 
+// --- SEPP / 72(t) ---
+
+export interface SEPPMethodResult {
+  annual: number;
+  monthly: number;
+}
+
+export interface SEPPReverseResult {
+  target_monthly: number;
+  /** IRA-A size that yields the target under fixed amortization. */
+  required_balance: number;
+}
+
+export interface SEPPResponse {
+  balance: number;
+  age: number;
+  rate: number;
+  /** max(5%, 120% of mid-term AFR) — Notice 2022-6 */
+  max_rate: number;
+  life_expectancy: number;
+  amortization: SEPPMethodResult;
+  /** Year-1 value; redetermined annually by design. */
+  rmd_method: SEPPMethodResult;
+  annuitization: SEPPMethodResult | null;
+  reverse: SEPPReverseResult | null;
+  assumptions: Record<string, string>;
+}
+
 // --- Tax Scenario ---
 
 export interface TaxScenarioInput {
