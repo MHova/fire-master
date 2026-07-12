@@ -206,7 +206,7 @@ Each month, expenses are funded through this sequence:
 4. **Net applied to cash** — income + draws - expenses → cash pool increases or decreases
 5. **Taxable, then IRA-B, backstop** — when cash falls below its ~12-month reserve, the taxable brokerage (if funded by property sales) is drawn first (penalty-free at any age); after 59½, IRA-B covers any residual gap
 6. **Surplus invested** — cash above 12-month reserve earns investment return (4% real)
-7. **Cash can go negative** — the model allows it to show bridge stress; frontend clamps display at $0
+7. **Cash can go negative only while no drawable pool exists** — pre-rescue bridge stress stays visible (and `cash_zero_month` records it); once the taxable pool is funded, a repair draw tops cash back to exactly $0, so a cash line resting at zero reads "funded month-to-month by pool draws, no buffer." Frontend clamps display at $0.
 
 ### Why This Matters for Spending Sensitivity
 

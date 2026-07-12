@@ -1380,6 +1380,16 @@ class FireProjectionsEngine:
                         ira_b -= b_draw
                         ira_draw += b_draw
 
+            # Cash repair: negative cash is genuine bridge stress only while
+            # no drawable pool exists — nobody runs checking negative for
+            # years beside a funded brokerage. Once the taxable pool has
+            # money, sell enough extra to bring cash back to zero. Pre-rescue
+            # dips (no pool yet) still show, and cash == 0 still trips
+            # cash_zero_month, so the stress signal survives.
+            if use_generic_sales and cash < 0 and taxable > 0:
+                repair = min(-cash, taxable)
+                taxable -= repair
+                taxable_draw += repair
 
             # --- Net cash flow ---
             # Cash earns tiered returns:

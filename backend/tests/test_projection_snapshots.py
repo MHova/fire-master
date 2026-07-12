@@ -463,3 +463,28 @@ class TestGradualPropertyExit:
         ).project_wealth_pools(end_age=82, bridge_months=60)
         ctl_labels = "; ".join(p.event for p in r_ctl.points if p.event)
         assert "Mountain House Sale Proceeds" in ctl_labels
+
+    @pytest.mark.asyncio
+    async def test_cash_repairs_to_zero_when_taxable_funded(
+        self, net_worth_breakdown, mock_accounts, mock_cashflow_events, mock_income_sources, frozen_today,
+    ):
+        """Negative cash is repaired back to zero from the taxable pool once it
+        exists — cash may only go negative while NO drawable pool is funded
+        (pre-rescue stress stays visible; the 44-month frozen negative scar the
+        owner spotted does not). High burn + an early sale forces the path."""
+        overrides = deepcopy(SCENARIO_SELL_ALL_THREE)
+        overrides["property_sales"][0]["sale_month"] = 3  # fund taxable early
+
+        config = _make_fire_config(target_annual_spending=30_000_000)  # $300K/yr burn
+        _apply_scenario(config, overrides)
+        engine = _make_engine(
+            config, net_worth_breakdown, mock_accounts, mock_cashflow_events, mock_income_sources)
+        r = await engine.project_wealth_pools(end_age=82, bridge_months=60)
+
+        # Invariant: never negative cash while the taxable pool has money
+        violations = [p for p in r.points if p.cash < 0 and p.taxable > 1]
+        assert not violations, f"frozen negative cash beside a funded pool: {violations[:3]}"
+        # The repair actually fired: months resting exactly on the floor while
+        # taxable draws cover the burn
+        floor_months = [p for p in r.points if p.cash == 0 and (p.taxable_draw or 0) > 0]
+        assert len(floor_months) >= 3, "expected cash pinned at zero by repair draws"
