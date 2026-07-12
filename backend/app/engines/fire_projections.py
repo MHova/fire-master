@@ -1056,9 +1056,23 @@ class FireProjectionsEngine:
         # cf_labels_by_month tags label-worthy occurrences only (one-offs + start
         # month of recurrings). Without this split, recurring events stamp a label
         # onto every month they're active and crowd out one-off events' markers.
+        # A generic property sale "owns" its property: suppress any legacy
+        # cashflow event it replaces (e.g. a planned "… Sale Proceeds" event)
+        # so proceeds aren't double-counted AND no phantom event label/marker
+        # renders for money that never lands. Opt-in per sale via
+        # "suppress_cashflow_match"; only active when generic sales are on.
+        def _sale_suppresses(label: str) -> bool:
+            return use_generic_sales and any(
+                (s.get("suppress_cashflow_match") or "")
+                and (s.get("suppress_cashflow_match") or "").lower() in label.lower()
+                for s in property_sales
+            )
+
         cf_by_month: dict[int, list[tuple[str, float]]] = {}
         cf_labels_by_month: dict[int, list[str]] = {}
         for cf in cashflow_events:
+            if _sale_suppresses(cf.name):
+                continue
             sign = 1.0 if cf.event_type == "income" else -1.0
             amount = cf.amount_cents / 100.0 * sign * cf.probability
             raw_offset = int((cf.date - today).days / 30.44)
@@ -1127,24 +1141,16 @@ class FireProjectionsEngine:
                 rrsp_draw = min(rrsp_monthly_net, rrsp_remaining)
                 rrsp_remaining -= rrsp_draw
 
-            # Cashflow events: accumulate money every month an event fires
+            # Cashflow events: accumulate money every month an event fires.
+            # (Sale-suppressed events were filtered out at construction, so
+            # neither their money nor their labels/markers ever appear here.)
             if m in cf_by_month:
                 for label, amount in cf_by_month[m]:
-                    # A generic property sale "owns" its property: suppress any legacy
-                    # cashflow event it replaces (e.g. a planned "… Sale Proceeds" event)
-                    # so proceeds aren't double-counted. Opt-in per sale via
-                    # "suppress_cashflow_match"; only active when generic sales are on.
-                    if use_generic_sales and any(
-                        (s.get("suppress_cashflow_match") or "")
-                        and (s.get("suppress_cashflow_match") or "").lower() in label.lower()
-                        for s in property_sales
-                    ):
-                        continue
                     income += amount
                     # Drop secondary-property RE equity when its (non-suppressed) sale
                     # event fires — matched via projection.sell_event_label_match.
-                    # Suppressed events already `continue`d above, so when the generic
-                    # path owns the property this never runs.
+                    # When the generic path owns the property, its event was
+                    # suppressed at construction, so this never runs.
                     if (sell_event_label_match and not secondary_sold
                             and sell_event_label_match.lower() in label.lower()):
                         re_equity -= re_secondary

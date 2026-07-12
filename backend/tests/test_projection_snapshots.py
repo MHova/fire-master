@@ -436,3 +436,30 @@ class TestGradualPropertyExit:
 
         assert r_a.total_at_end == r_b.total_at_end, (
             "legacy sale keys must be ignored when property_sales is present")
+
+    @pytest.mark.asyncio
+    async def test_suppressed_sale_event_leaves_no_phantom_marker(
+        self, net_worth_breakdown, mock_accounts, mock_cashflow_events, mock_income_sources, frozen_today,
+    ):
+        """suppress_cashflow_match must silence the event's LABEL too, not just
+        its money — a suppressed "… Sale Proceeds" event used to still render
+        a chart marker at its event month, implying income that never lands,
+        right next to the generic sale's own marker (spotted as apparent
+        double-counting on the bridge chart)."""
+        r = await self._engine(
+            SCENARIO_SELL_ALL_THREE, net_worth_breakdown, mock_accounts,
+            mock_cashflow_events, mock_income_sources,
+        ).project_wealth_pools(end_age=82, bridge_months=60)
+        labels = "; ".join(p.event for p in r.points if p.event)
+        assert "Mountain House Sale Proceeds" not in labels, (
+            "phantom marker rendered for a sale-suppressed event")
+        assert "Sell Mountain House" in labels, (
+            "the generic sale's own marker must still render")
+
+        # Control: without generic sales, the event is real and keeps its label
+        r_ctl = await self._engine(
+            SCENARIO_KEEP_BOTH, net_worth_breakdown, mock_accounts,
+            mock_cashflow_events, mock_income_sources,
+        ).project_wealth_pools(end_age=82, bridge_months=60)
+        ctl_labels = "; ".join(p.event for p in r_ctl.points if p.event)
+        assert "Mountain House Sale Proceeds" in ctl_labels
