@@ -13,6 +13,10 @@ What it seeds:
   - ~2 years of weekly balance history per account + net worth history
   - 6 income sources (ended salary, severance, unemployment, three rentals)
   - 10 future cashflow events (severance lump, property sale, equity vests …)
+  - The three properties + merchant classification rules, and ~18 months of
+    transactions (recurring merchants, rental income, property expenses) so the
+    Spending, Tracker, Transactions, and Properties pages all render alive —
+    classified through the real rules engine, not pre-stamped
   - The FIRE config for the persona: SEPP bridge starting month 12, a
     property_sales plan (sell the Mountain House in ~6 months, downsize out of
     the Coastal Condo at month 60), Social Security at 62
@@ -40,6 +44,7 @@ import argparse
 import asyncio
 import math
 import os
+import random
 import sys
 from datetime import date, timedelta
 from pathlib import Path
@@ -52,6 +57,8 @@ from sqlalchemy import delete, select
 
 from app.core.database import async_session_factory
 from app.engines.net_worth import NetWorthEngine
+from app.engines.property_pnl import PropertyPnLEngine
+from app.ingestion.category_sync import CategorySyncService
 from app.models.account import Account
 from app.models.balance_snapshot import BalanceSnapshot
 from app.models.cashflow_event import CashflowEvent
@@ -59,6 +66,9 @@ from app.models.enums import AccountType, DataSource, IncomeType
 from app.models.fire_config import FireConfig
 from app.models.income_source import IncomeSource
 from app.models.net_worth_snapshot import NetWorthSnapshot
+from app.models.property import Property
+from app.models.property_rule import PropertyRule
+from app.models.transaction import Transaction
 
 DEMO_MARKER = {"demo_seed": True}
 HISTORY_WEEKS = 104  # ~2 years of weekly balance snapshots
@@ -137,6 +147,134 @@ CASHFLOW_EVENTS = [
     ("Startup A vests (1.5x)",           "income",   7_800_000, ("months", 60), 0.7, False, None, None),
     ("Startup B vests (1.5x)",           "income",   2_200_000, ("months", 72), 0.6, False, None, None),
     ("Startup C vests (2x)",             "income",   4_500_000, ("months", 84), 0.5, False, None, None),
+]
+
+
+# ---------------------------------------------------------------------------
+# Persona — properties + merchant classification rules. The demo transactions
+# below are classified through the REAL rules engine (PropertyPnLEngine), not
+# pre-stamped, so the Properties page demos the actual product mechanism.
+# ---------------------------------------------------------------------------
+# (key, name, address, color, value_cents, loan_cents, purchase_cents,
+#  potential_rental_cents, potential_rental_full_cents, notes)
+DEMO_PROPERTIES = [
+    ("coastal_condo", "Coastal Condo", "123 Shoreline Ave #1100, Beach City", "#b04a56",
+     51_000_000, 32_500_000, 51_000_000, 260_000, 450_000,
+     ["Primary residence — owner-occupied, one room rented to a long-term tenant ($340/mo)",
+      "Monthly HOA ~$700 via CondoPay; special assessment running this year",
+      "Downsize plan: sell around month 60 (see the property_sales config)"]),
+    ("mountain_house", "Mountain House", "48 Powder Run Rd, Highland Valley", "#4a6fa5",
+     39_800_000, 26_700_000, 38_500_000, 290_000, None,
+     ["Secondary home, under contract to sell in ~6 months",
+      "Short-term-rented in ski season via Alpine Stays until the sale",
+      "Carry cost ~$2,400/mo all-in while held"]),
+    ("river_house", "River House", "Floating Home #7, River City", "#2e8b6e",
+     39_600_000, 0, 22_000_000, 330_000, None,
+     ["Floating home — fully paid off, rented long-term through Acme Property Mgmt",
+      "Moorage fee paid by check (see the category-gated 'Check #' rule)",
+      "The income property: ~$3,300/mo rent against ~$1,000/mo carry"]),
+]
+
+# (property_key, pattern, rule_kind, expense_category, require_tx_category, priority)
+DEMO_PROPERTY_RULES = [
+    ("coastal_condo", "Lender A Mortgage",        "expense", "Mortgage",              None,   10),
+    ("coastal_condo", "CondoPay",                 "expense", "HOA / Condo Fees",      None,   10),
+    ("coastal_condo", "Condo Assoc",              "expense", "Assessments",           None,   10),
+    ("coastal_condo", "Coastal Power",            "expense", "Utilities",             None,   10),
+    ("coastal_condo", "Coastal Home Insurance",   "expense", "Insurance",             None,   10),
+    ("coastal_condo", "Beach City Treasurer",     "expense", "Property Tax",          None,   10),
+    ("coastal_condo", "Tenant Direct",            "income",  None,                    None,   20),
+    ("mountain_house", "Lender B Mortgage",       "expense", "Mortgage",              None,   10),
+    ("mountain_house", "Alpine Power",            "expense", "Utilities",             None,   10),
+    ("mountain_house", "Highland Home Insurance", "expense", "Insurance",             None,   10),
+    ("mountain_house", "Highland County Treasurer", "expense", "Property Tax",        None,   10),
+    ("mountain_house", "Peak Cleaners",           "expense", "Repairs / Maintenance", None,   10),
+    ("mountain_house", "Alpine Stays",            "income",  None,                    None,   20),
+    ("river_house", "Shield Insurance",           "expense", "Insurance",             None,   10),
+    ("river_house", "Metro Gas",                  "expense", "Utilities",             None,   10),
+    ("river_house", "Valley Electric",            "expense", "Utilities",             None,   10),
+    ("river_house", "River County Tax",           "expense", "Property Tax",          None,   10),
+    ("river_house", "Ace Hardware",               "expense", "Repairs / Maintenance", None,   10),
+    ("river_house", "Check #",                    "expense", "Moorage",               "Rent", 60),
+    ("river_house", "Acme Property Mgmt",         "income",  None,                    None,   20),
+]
+
+
+# ---------------------------------------------------------------------------
+# Persona — ~18 months of transactions. Cadences generate deterministic dates
+# (seeded RNG) offset from the seed anchor, so the ledger is always current.
+#
+# cadence: ("monthly", day_of_month)
+#        | ("interval", days)             every ~N days
+#        | ("weekly", weekday, prob)      that weekday, present with probability
+# window: (min_offset_days, max_offset_days) relative to the anchor — lets the
+#         ended salary stop 3 weeks ago and unemployment start 4 weeks ago.
+# Amounts in cents: negative = expense, positive = income (Monarch convention).
+# ---------------------------------------------------------------------------
+TXN_WINDOW_DAYS = 548  # ~18 months
+# (merchant, raw_category, cadence, amount_cents, jitter_pct, account, window)
+DEMO_TRANSACTIONS = [
+    # --- income (ledger realism; property rents classify via income rules) ---
+    ("Employer Payroll",        "Paychecks",       ("interval", 14),   650_000, 0.0,  "Everyday Checking", (-TXN_WINDOW_DAYS, -21)),
+    ("Employer Severance",      "Paychecks",       ("interval", 14),   315_000, 0.0,  "Everyday Checking", (-84, 0)),
+    ("State Employment Dept",   "Other Income",    ("interval", 14),    62_000, 0.0,  "Everyday Checking", (-28, 0)),
+    ("Interest Payment",        "Interest",        ("monthly", 1),      19_500, 0.15, "High-Yield Savings", None),
+    ("Acme Property Mgmt",      "Business Income", ("monthly", 3),     330_000, 0.0,  "Everyday Checking", None),
+    ("Tenant Direct",           "Business Income", ("monthly", 5),      34_000, 0.0,  "Everyday Checking", None),
+    # --- property expenses (classified by the rules above) ---
+    ("Lender A Mortgage",       "Mortgage & Rent", ("monthly", 1),    -310_000, 0.0,  "Everyday Checking", None),
+    ("CondoPay",                "Mortgage & Rent", ("monthly", 5),     -70_000, 0.0,  "Everyday Checking", None),
+    ("Coastal Power & Light",   "Utilities",       ("monthly", 12),    -14_500, 0.30, "Everyday Checking", None),
+    ("Coastal Home Insurance",  "Insurance",       ("monthly", 8),     -21_000, 0.0,  "Everyday Checking", None),
+    ("Lender B Mortgage",       "Mortgage & Rent", ("monthly", 1),    -180_000, 0.0,  "Everyday Checking", None),
+    ("Alpine Power Co-op",      "Utilities",       ("monthly", 15),     -8_500, 0.35, "Everyday Checking", None),
+    ("Peak Cleaners",           "Home Improvement", ("interval", 40),   -12_000, 0.35, "Everyday Checking", None),
+    ("Condo Assoc Special Assessment", "Mortgage & Rent", ("monthly", 6), -45_000, 0.0, "Everyday Checking", (-45, 0)),
+    ("Highland Home Insurance", "Insurance",       ("monthly", 20),    -14_000, 0.0,  "Everyday Checking", None),
+    ("Shield Insurance",        "Insurance",       ("monthly", 16),    -12_000, 0.0,  "Everyday Checking", None),
+    ("Metro Gas",               "Utilities",       ("monthly", 22),     -6_000, 0.45, "Everyday Checking", None),
+    ("Valley Electric",         "Utilities",       ("monthly", 24),     -7_000, 0.30, "Everyday Checking", None),
+    ("Ace Hardware",            "Home Improvement", ("interval", 42),  -11_000, 0.60, "Everyday Checking", None),
+    # --- personal spending (the Tracker's world: non-property, non-tax) ---
+    ("Green Basket Market",     "Groceries",       ("weekly", 5, 0.90), -19_500, 0.35, "Everyday Checking", None),
+    ("Harborside Fish Co",      "Groceries",       ("interval", 24),    -9_500, 0.40, "Everyday Checking", None),
+    ("Driftwood Coffee",        "Coffee Shops",    ("weekly", 1, 0.75),    -900, 0.30, "Everyday Checking", None),
+    ("Salt & Vine",             "Restaurants & Bars", ("interval", 11), -10_500, 0.40, "Everyday Checking", None),
+    ("Harbor Thai",             "Restaurants & Bars", ("interval", 13),  -6_200, 0.30, "Everyday Checking", None),
+    ("Taco Cantina",            "Fast Food",       ("interval", 16),    -3_800, 0.30, "Everyday Checking", None),
+    ("Boardwalk Pizza",         "Restaurants & Bars", ("interval", 19), -4_400, 0.30, "Everyday Checking", None),
+    ("Fuel Stop",               "Gas & Fuel",      ("interval", 10),    -5_800, 0.25, "Everyday Checking", None),
+    ("Truck & Auto Service",    "Service & Parts", ("interval", 100),  -31_000, 0.50, "Everyday Checking", None),
+    ("Roadstar Auto Insurance", "Insurance",       ("monthly", 12),    -16_800, 0.0,  "Everyday Checking", None),
+    ("Bridge Health Plan",      "Insurance",       ("monthly", 1),     -61_000, 0.0,  "Everyday Checking", None),
+    ("Wellcare Pharmacy",       "Pharmacy",        ("interval", 20),    -3_800, 0.45, "Everyday Checking", None),
+    ("Bayview Family Clinic",   "Medical",         ("interval", 75),   -14_000, 0.50, "Everyday Checking", None),
+    ("Ridge Fitness",           "Health & Fitness", ("monthly", 3),     -4_900, 0.0,  "Everyday Checking", None),
+    ("Metro Wireless",          "Mobile Phone",    ("monthly", 8),      -9_500, 0.0,  "Everyday Checking", None),
+    ("City Fiber Internet",     "Internet & Cable", ("monthly", 12),    -7_900, 0.0,  "Everyday Checking", None),
+    ("StreamFlix",              "Entertainment & Recreation", ("monthly", 4),  -1_900, 0.0, "Everyday Checking", None),
+    ("CloudTunes",              "Music",           ("monthly", 15),     -1_100, 0.0,  "Everyday Checking", None),
+    ("PrimeShip",               "Shopping",        ("monthly", 17),     -1_400, 0.0,  "Everyday Checking", None),
+    ("Harbor Marina Moorage",   "Boat Storage",    ("monthly", 2),     -38_500, 0.0,  "Everyday Checking", None),
+    ("Marina Fuel Dock",        "Boat Gas",        ("interval", 26),    -8_800, 0.40, "Everyday Checking", None),
+    ("Boatworks Supply",        "Boat Service & Parts", ("interval", 60), -15_000, 0.50, "Everyday Checking", None),
+    ("ShopFast",                "Shopping",        ("interval", 6),     -5_400, 0.60, "Everyday Checking", None),
+    ("Outdoor Outfitters",      "Clothing",        ("interval", 45),   -16_000, 0.50, "Everyday Checking", None),
+    ("Page & Bindery",          "Books",           ("interval", 40),    -2_800, 0.40, "Everyday Checking", None),
+    ("CinePlex",                "Entertainment & Recreation", ("interval", 30), -3_400, 0.30, "Everyday Checking", None),
+    ("Clip Joint Barbers",      "Personal Care",   ("interval", 32),    -3_800, 0.15, "Everyday Checking", None),
+    ("Coastal Air",             "Air Travel",      ("interval", 130),  -42_000, 0.30, "Everyday Checking", None),
+    ("Seaside Hotel",           "Hotel",           ("interval", 150),  -52_000, 0.30, "Everyday Checking", None),
+    ("Bloom & Branch",          "Gifts & Donations", ("interval", 55),  -6_500, 0.40, "Everyday Checking", None),
+    ("Community Foodbank",      "Gifts & Donations", ("monthly", 25),   -5_000, 0.0,  "Everyday Checking", None),
+    ("Cash & ATM",              "Cash & ATM",      ("interval", 40),   -10_000, 0.0,  "Everyday Checking", None),
+]
+
+# Semiannual property tax bills: (merchant, amount_cents, months of year)
+DEMO_PROPERTY_TAX_BILLS = [
+    ("Beach City Treasurer",       -270_000, (4, 10)),
+    ("Highland County Treasurer",  -195_000, (5, 11)),
+    ("River County Tax",           -105_000, (4, 10)),
 ]
 
 
@@ -295,6 +433,90 @@ def _mortgage_balances(end_balance: int, monthly_principal: int, weeks: int) -> 
 
 
 # ---------------------------------------------------------------------------
+# Transaction generation (seeded RNG — same anchor date, same ledger)
+# ---------------------------------------------------------------------------
+
+def _month_day(anchor: date, months_back: int, day: int) -> date:
+    """The `day`-th of the month `months_back` months ago, clamped to month length."""
+    base = (anchor.replace(day=1) - relativedelta(months=months_back))
+    last = (base + relativedelta(months=1) - timedelta(days=1)).day
+    return base.replace(day=min(day, last))
+
+
+def generate_demo_transactions(anchor: date) -> list[dict]:
+    """Expand the cadence specs into dated rows. Deterministic per anchor date."""
+    rng = random.Random(4257)
+    start = anchor - timedelta(days=TXN_WINDOW_DAYS)
+    rows: list[dict] = []
+
+    def emit(day: date, merchant: str, category: str, amount: int, account: str):
+        if start <= day <= anchor:
+            rows.append(dict(date=day, merchant=merchant, category=category,
+                             amount=amount, account=account))
+
+    for merchant, category, cadence, amount, jitter, account, window in DEMO_TRANSACTIONS:
+        lo = anchor + timedelta(days=window[0]) if window else start
+        hi = anchor + timedelta(days=window[1]) if window else anchor
+
+        def jittered() -> int:
+            return int(amount * (1 + jitter * rng.uniform(-1, 1)))
+
+        if cadence[0] == "monthly":
+            for m in range(TXN_WINDOW_DAYS // 28):
+                d = _month_day(anchor, m, cadence[1])
+                if lo <= d <= hi:
+                    emit(d, merchant, category, jittered(), account)
+        elif cadence[0] == "interval":
+            step = cadence[1]
+            d = hi - timedelta(days=rng.randint(0, step // 2))
+            while d >= lo:
+                emit(d, merchant, category, jittered(), account)
+                d -= timedelta(days=int(step * rng.uniform(0.75, 1.25)))
+        elif cadence[0] == "weekly":
+            weekday, prob = cadence[1], cadence[2]
+            d = hi - timedelta(days=(hi.weekday() - weekday) % 7)
+            while d >= lo:
+                if rng.random() < prob:
+                    emit(d, merchant, category, jittered(), account)
+                d -= timedelta(days=7)
+
+    # Semiannual property tax bills (raw category "Taxes" keeps them out of the
+    # Tracker even before classification; the rules put them on the right P&L).
+    for merchant, amount, months in DEMO_PROPERTY_TAX_BILLS:
+        d = start.replace(day=15)
+        while d <= anchor:
+            if d.month in months:
+                emit(d, merchant, "Taxes", amount, "Everyday Checking")
+            d += relativedelta(months=1)
+
+    # Ski-season short-term-rental payouts for the Mountain House: bigger and
+    # more frequent in winter, occasional in summer, nothing in the shoulders.
+    d = start
+    while d <= anchor:
+        if d.month in (11, 12, 1, 2, 3):
+            for _ in range(2):
+                emit(d.replace(day=rng.randint(2, 27)), "Alpine Stays Payout",
+                     "Business Income", int(95_000 * rng.uniform(0.6, 1.5)),
+                     "Everyday Checking")
+        elif d.month in (6, 7, 8) and rng.random() < 0.5:
+            emit(d.replace(day=rng.randint(2, 27)), "Alpine Stays Payout",
+                 "Business Income", int(45_000 * rng.uniform(0.7, 1.3)),
+                 "Everyday Checking")
+        d += relativedelta(months=1)
+
+    # Floating-home moorage, paid by numbered check — exercises the
+    # category-gated "Check #" rule (only a "Rent"-categorized check matches).
+    check_no = 1041
+    for m in range(TXN_WINDOW_DAYS // 30, -1, -1):
+        d = _month_day(anchor, m, 6)
+        if start <= d <= anchor:
+            emit(d, f"Check #{check_no}", "Rent", -65_000, "Everyday Checking")
+            check_no += 1
+
+    return rows
+
+
+# ---------------------------------------------------------------------------
 # Seed / remove
 # ---------------------------------------------------------------------------
 
@@ -420,6 +642,93 @@ async def seed(force: bool, with_config: bool) -> None:
             ev.custom_data = {**(ev.custom_data or {}), **DEMO_MARKER}
         print(f"  Cashflow events: {len(CASHFLOW_EVENTS)}")
 
+        # --- Properties (upsert by key) + classification rules (rebuild) ---
+        prop_keys = [p[0] for p in DEMO_PROPERTIES]
+        result = await session.execute(select(Property).where(Property.key.in_(prop_keys)))
+        existing_props = {p.key: p for p in result.scalars().all()}
+        props_by_key: dict[str, Property] = {}
+        for order, (key, pname, address, color, value, loan, purchase,
+                    rental, rental_full, notes) in enumerate(DEMO_PROPERTIES):
+            prop = existing_props.get(key)
+            if prop is None:
+                prop = Property(key=key)
+                session.add(prop)
+            prop.name = pname
+            prop.address = address
+            prop.color = color
+            prop.value_cents = value
+            prop.loan_balance_cents = loan
+            prop.purchase_price_cents = purchase
+            prop.potential_monthly_rental_cents = rental
+            prop.potential_monthly_rental_full_cents = rental_full
+            prop.display_order = order
+            prop.is_active = True
+            prop.notes = notes
+            prop.extra_data = {**(prop.extra_data or {}), **DEMO_MARKER}
+            props_by_key[key] = prop
+        await session.flush()
+
+        prop_ids = [p.id for p in props_by_key.values()]
+        await session.execute(
+            delete(PropertyRule).where(PropertyRule.property_id.in_(prop_ids))
+        )
+        for key, pattern, kind, category, require_cat, priority in DEMO_PROPERTY_RULES:
+            session.add(PropertyRule(
+                property_id=props_by_key[key].id, pattern=pattern, rule_kind=kind,
+                expense_category=category, require_tx_category=require_cat,
+                priority=priority,
+            ))
+        print(f"  Properties: {len(DEMO_PROPERTIES)} ({len(DEMO_PROPERTY_RULES)} rules)")
+
+        # --- Transactions (rebuild: delete + regenerate, dates re-anchor) ---
+        await session.execute(
+            delete(Transaction).where(Transaction.account_id.in_(demo_ids))
+        )
+        txn_rows = generate_demo_transactions(anchor)
+        for row in txn_rows:
+            session.add(Transaction(
+                account_id=accounts_by_name[row["account"]].id,
+                external_id=None,
+                date=row["date"],
+                amount=row["amount"],
+                category=row["category"],
+                merchant=row["merchant"],
+                source=DataSource.MANUAL,
+            ))
+
+        # Two peer-to-peer rent deposits for the Mountain House. P2P merchants
+        # carry no property signal, so rules can never classify them: one is
+        # manually assigned (the override workflow), one is left unclassified —
+        # find it in the Transactions ledger and assign it yourself.
+        checking_id = accounts_by_name["Everyday Checking"].id
+        session.add(Transaction(
+            account_id=checking_id, external_id=None,
+            date=anchor - timedelta(days=41), amount=72_500,
+            category="Other Income", merchant="PayFriend",
+            notes="Ski-week rent, paid person-to-person",
+            source=DataSource.MANUAL,
+            property_id=props_by_key["mountain_house"].id,
+            property_category="Rental Income", property_source="manual",
+        ))
+        session.add(Transaction(
+            account_id=checking_id, external_id=None,
+            date=anchor - timedelta(days=6), amount=72_500,
+            category="Other Income", merchant="PayFriend",
+            notes="Ski-week rent — unclassified on purpose: assign it to a property from the Transactions page",
+            source=DataSource.MANUAL,
+        ))
+        await session.flush()
+        print(f"  Transactions: {len(txn_rows) + 2} over ~{TXN_WINDOW_DAYS // 30} months")
+
+        # --- Category mappings (normalize the raw categories just inserted) ---
+        mapped = await CategorySyncService(session).sync_from_transactions()
+        if mapped:
+            print(f"  Category mappings: {mapped} backfilled")
+
+        # --- Classify transactions through the real rules engine ---
+        counts = await PropertyPnLEngine(session).reclassify()
+        print(f"  Reclassify: {counts}")
+
         # --- FIRE config ---
         result = await session.execute(select(FireConfig).limit(1))
         config = result.scalar_one_or_none()
@@ -453,7 +762,8 @@ async def seed(force: bool, with_config: bool) -> None:
     print(f"""
 Done. The demo persona is live (anchored to {anchor}).
 
-  Open the app: Dashboard, Retirement, Runway, and Config are all populated.
+  Open the app: Dashboard, Retirement, Runway, Spending, Tracker, Transactions,
+  Properties, and Config are all populated.
   Optional: seed example what-if scenarios too →  uv run python ../scripts/seed_scenarios.py
   Going live with your own data later? Connect Monarch (see docs/MONARCH_SETUP.md),
   then remove the demo rows:  uv run python ../scripts/seed_demo.py --remove
@@ -484,6 +794,8 @@ async def remove() -> None:
     async with async_session_factory() as session:
         summary = await clear_demo_data(session)
         print(f"  Accounts removed: {summary['accounts']} (and their balance history)")
+        print(f"  Transactions removed: {summary['transactions']}")
+        print(f"  Properties removed: {summary['properties']} (and their rules)")
         print(f"  Income sources removed: {summary['income_sources']}")
         print(f"  Cashflow events removed: {summary['cashflow_events']}")
         if summary["net_worth_snapshots"]:

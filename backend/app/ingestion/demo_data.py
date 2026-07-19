@@ -10,7 +10,7 @@ the Monarch sync) go through here, so there is exactly one removal implementatio
 
 from __future__ import annotations
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.engines.net_worth import NetWorthEngine
@@ -20,6 +20,8 @@ from app.models.cashflow_event import CashflowEvent
 from app.models.enums import DataSource
 from app.models.income_source import IncomeSource
 from app.models.net_worth_snapshot import NetWorthSnapshot
+from app.models.property import Property
+from app.models.transaction import Transaction
 
 
 def _demo_filter(model):
@@ -56,12 +58,30 @@ async def clear_demo_data(db: AsyncSession) -> dict:
         await db.execute(select(Account).where(_demo_filter(Account)))
     ).scalars().all()
     demo_ids = [a.id for a in demo_accounts]
+    removed_txns = 0
     if demo_ids:
         await db.execute(
             delete(BalanceSnapshot).where(BalanceSnapshot.account_id.in_(demo_ids))
         )
+        # Demo transactions live on demo accounts (FK cascade would remove them
+        # anyway); delete explicitly so the summary reports an honest count.
+        removed_txns = int((await db.execute(
+            select(func.count()).select_from(Transaction)
+            .where(Transaction.account_id.in_(demo_ids))
+        )).scalar() or 0)
+        await db.execute(delete(Transaction).where(Transaction.account_id.in_(demo_ids)))
     for acct in demo_accounts:
         await db.delete(acct)
+
+    # Demo properties (their rules cascade; any real transaction a demo rule
+    # classified reverts to unassigned via the FK's SET NULL + next reclassify).
+    demo_props = (
+        await db.execute(
+            select(Property).where(Property.extra_data["demo_seed"].as_boolean() == True)  # noqa: E712
+        )
+    ).scalars().all()
+    for prop in demo_props:
+        await db.delete(prop)
 
     removed_income = 0
     for src in (
@@ -86,6 +106,8 @@ async def clear_demo_data(db: AsyncSession) -> dict:
 
     return {
         "accounts": len(demo_accounts),
+        "transactions": removed_txns,
+        "properties": len(demo_props),
         "income_sources": removed_income,
         "cashflow_events": removed_events,
         "net_worth_snapshots": nw_snapshots,
