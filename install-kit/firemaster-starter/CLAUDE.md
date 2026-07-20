@@ -62,7 +62,7 @@ see what's there before composing an override — never invent keys that aren't 
 
 ### 3. Properties (only if the user owns property)
 Two pieces: the property record, then merchant **rules** that classify transactions to it.
-1. `POST /api/properties` — `{"key": "river-house", "name": "River House", "value": 450000,
+1. `POST /api/properties` — `{"key": "cedar-duplex", "name": "Cedar Duplex", "value": 450000,
    "loan_balance": 280000, ...}`. **Dollars, not cents** here. `key` is a short slug.
 2. `POST /api/properties/rules` — `{"property_id": "<uuid>", "pattern": "HOME DEPOT",
    "match_type": "merchant_substring", "rule_kind": "expense" | "income" | "exclusion",

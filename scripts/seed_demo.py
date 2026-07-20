@@ -1,11 +1,11 @@
 """Seed a complete demo financial life so a fresh install renders every page alive.
 
-Creates the synthetic demo persona (the same one the test suite verifies): a
-52-year-old who was just laid off and is bridging to penalty-free retirement
-account access at 59½. Three properties — a Coastal Condo (primary residence,
-mortgaged), a Mountain House (secondary home, under contract to sell), and a
-River House (rented out) — plus retirement accounts, startup equity, severance
-runway, and a SEPP/72(t) bridge plan.
+Creates the synthetic demo persona: a couple in their early 50s, one spouse
+just laid off, bridging to penalty-free retirement account access at 59½.
+Three properties — a City Loft (primary residence, mortgaged), a Desert Casita
+(snowbird short-term rental, under contract to sell), and a Lakeside Cabin
+(rented long-term) — plus retirement accounts, a Canadian RRSP to draw down,
+startup equity, severance runway, and a SEPP/72(t) bridge plan.
 
 What it seeds:
   - 17 accounts with FIRE-role enrichment (cash, 401(k)/IRAs, real estate,
@@ -18,8 +18,8 @@ What it seeds:
     Spending, Tracker, Transactions, and Properties pages all render alive —
     classified through the real rules engine, not pre-stamped
   - The FIRE config for the persona: SEPP bridge starting month 12, a
-    property_sales plan (sell the Mountain House in ~6 months, downsize out of
-    the Coastal Condo at month 60), Social Security at 62
+    property_sales plan (sell the Desert Casita in ~6 months, downsize out of
+    the City Loft at month 60), Social Security at 62
 
 All dates are anchored to TODAY at seed time, so the story is always "just laid
 off, severance ending soon, sale closing in ~6 months" — re-running the script
@@ -85,30 +85,30 @@ HISTORY_WEEKS = 104  # ~2 years of weekly balance snapshots
 # (>1 = the asset has been depreciating). wiggle_amplitude adds a deterministic
 # sine wobble so charts look like markets, not CAD drawings.
 ACCOUNTS = [
-    ("Everyday Checking",        AccountType.CHECKING,  "Harborview Bank",     "operating_account",        1_800_000,  True,  0.85, 0.06),
-    ("High-Yield Savings",       AccountType.SAVINGS,   "Harborview Bank",     "cash_reserve",             5_800_000,  True,  0.60, 0.01),
-    ("Crypto Portfolio",         AccountType.CRYPTO,    "Coinvault",           "speculative",              1_700_000,  True,  0.62, 0.10),
-    ("Employer 401(k)",          AccountType.FOUR_OH_ONE_K, "Meridian Retirement", "retirement_core",     29_700_000,  True,  0.82, 0.02),
-    ("Rollover IRA (bridge)",    AccountType.IRA,       "Cascade Brokerage",   "retirement_bridge",       40_200_000,  True,  0.82, 0.02),
-    ("Roth IRA",                 AccountType.ROTH_IRA,  "Cascade Brokerage",   "retirement_supplemental", 16_500_000,  True,  0.82, 0.02),
-    ("HSA",                      AccountType.HSA,       "Lakeshore Health",    "tax_free_reserve",           600_000,  True,  0.70, 0.02),
-    ("Coastal Condo",            AccountType.REAL_ESTATE, None,                "primary_residence",       51_000_000,  True,  0.962, 0.004),
-    ("Coastal Condo Mortgage",   AccountType.REAL_ESTATE, "Lender A",          "primary_mortgage",        32_500_000,  False, None, None),
-    ("Mountain House",           AccountType.REAL_ESTATE, None,                "sell_candidate",          39_800_000,  True,  0.962, 0.004),
-    ("Mountain House Mortgage",  AccountType.REAL_ESTATE, "Lender B",          "sell_with_property",      26_700_000,  False, None, None),
-    ("River House",              AccountType.REAL_ESTATE, None,                "income_producing",        39_600_000,  True,  0.962, 0.004),
-    ("Startup A Equity",         AccountType.PRIVATE,   None,                  "illiquid_private",         7_800_000,  True,  1.0,  0.0),
-    ("Startup B Equity",         AccountType.PRIVATE,   None,                  "illiquid_private",         2_200_000,  True,  1.0,  0.0),
-    ("Startup C Equity",         AccountType.PRIVATE,   None,                  "illiquid_private",         2_800_000,  True,  1.0,  0.0),
-    ("Pickup Truck",             AccountType.VEHICLE,   None,                  "depreciating",             4_200_000,  True,  1.24, 0.0),
-    ("Boat",                     AccountType.OTHER,     None,                  "depreciating",             2_300_000,  True,  1.13, 0.0),
+    ("Everyday Checking",        AccountType.CHECKING,  "First Ridgeline Bank", "operating_account",       2_100_000,  True,  0.85, 0.06),
+    ("High-Yield Savings",       AccountType.SAVINGS,   "First Ridgeline Bank", "cash_reserve",            6_400_000,  True,  0.60, 0.01),
+    ("Crypto Portfolio",         AccountType.CRYPTO,    "Coinvault",           "speculative",              1_400_000,  True,  0.62, 0.10),
+    ("Employer 401(k)",          AccountType.FOUR_OH_ONE_K, "Meridian Retirement", "retirement_core",     39_200_000,  True,  0.82, 0.02),
+    ("Rollover IRA (bridge)",    AccountType.IRA,       "Keystone Brokerage",  "retirement_bridge",       43_600_000,  True,  0.82, 0.02),
+    ("Roth IRA",                 AccountType.ROTH_IRA,  "Keystone Brokerage",  "retirement_supplemental", 17_200_000,  True,  0.82, 0.02),
+    ("HSA",                      AccountType.HSA,       "Bluecrest Health",    "tax_free_reserve",           720_000,  True,  0.70, 0.02),
+    ("City Loft",                AccountType.REAL_ESTATE, None,                "primary_residence",       46_800_000,  True,  0.962, 0.004),
+    ("City Loft Mortgage",       AccountType.REAL_ESTATE, "Granite Home Loans", "primary_mortgage",       29_600_000,  False, None, None),
+    ("Desert Casita",            AccountType.REAL_ESTATE, None,                "sell_candidate",          38_600_000,  True,  0.962, 0.004),
+    ("Desert Casita Mortgage",   AccountType.REAL_ESTATE, "Sunline Mortgage",  "sell_with_property",      23_800_000,  False, None, None),
+    ("Lakeside Cabin",           AccountType.REAL_ESTATE, None,                "income_producing",        42_800_000,  True,  0.962, 0.004),
+    ("Startup A Equity",         AccountType.PRIVATE,   None,                  "illiquid_private",         8_400_000,  True,  1.0,  0.0),
+    ("Startup B Equity",         AccountType.PRIVATE,   None,                  "illiquid_private",         1_900_000,  True,  1.0,  0.0),
+    ("Startup C Equity",         AccountType.PRIVATE,   None,                  "illiquid_private",         3_100_000,  True,  1.0,  0.0),
+    ("Pickup Truck",             AccountType.VEHICLE,   None,                  "depreciating",             3_800_000,  True,  1.24, 0.0),
+    ("Pontoon Boat",             AccountType.OTHER,     None,                  "depreciating",             1_900_000,  True,  1.13, 0.0),
 ]
 
 # Mortgages amortize linearly back in time: balance N months ago was higher by
 # N × monthly principal. (name → monthly principal paydown, cents)
 MORTGAGE_MONTHLY_PRINCIPAL = {
-    "Coastal Condo Mortgage": 134_000,   # $3,100 P&I @ ~6.5% on $325K
-    "Mountain House Mortgage": 24_000,   # $1,800 P&I @ ~7% on $267K
+    "City Loft Mortgage": 132_000,      # $2,850 P&I @ ~6.2% on $296K
+    "Desert Casita Mortgage": 31_000,   # $1,650 P&I @ ~6.75% on $238K
 }
 
 
@@ -118,18 +118,18 @@ MORTGAGE_MONTHLY_PRINCIPAL = {
 # ---------------------------------------------------------------------------
 # (name, income_type, annual_amount_cents, end_offset_days or None)
 INCOME_SOURCES = [
-    ("Employer Salary (ended)",  IncomeType.SALARY, 25_000_000, -21),
-    ("Employer Severance",       IncomeType.OTHER,   8_200_000,  16),
+    ("Employer Salary (ended)",  IncomeType.SALARY, 23_500_000, -21),
+    ("Employer Severance",       IncomeType.OTHER,   7_600_000,  16),
     ("State Unemployment",       IncomeType.OTHER,   1_440_000,  77),
-    ("Coastal Condo Rental",     IncomeType.RENTAL,    410_000, None),
-    ("Mountain House Rental",    IncomeType.RENTAL,    870_000,  77),
-    ("River House Rental",       IncomeType.RENTAL,  3_960_000, None),
+    ("City Loft Rental",         IncomeType.RENTAL,    430_000, None),
+    ("Desert Casita Rental",     IncomeType.RENTAL,    900_000,  77),
+    ("Lakeside Cabin Rental",    IncomeType.RENTAL,  4_140_000, None),
 ]
 
 
 # ---------------------------------------------------------------------------
 # Persona — cashflow events (amounts in cents; offsets from the seed anchor).
-# "Mountain House Sale Proceeds" is deliberately BOTH an event and a
+# "Desert Casita Sale Proceeds" is deliberately BOTH an event and a
 # property_sales entry: the Runway page consumes the event, while the wealth
 # projection suppresses it (suppress_cashflow_match) because the generic sale
 # path computes the proceeds itself. That's the supported pattern.
@@ -137,16 +137,16 @@ INCOME_SOURCES = [
 # (name, event_type, amount_cents, offset_days or ("months", n), probability,
 #  is_recurring, recurrence, end_offset_days)
 CASHFLOW_EVENTS = [
-    ("Coastal Condo Special Assessment", "expense",    450_000, -13, 1.0,  True,  "monthly", 139),
-    ("Boat Payment",                     "expense",    500_000,  14, 1.0,  False, None, None),
-    ("Remaining Severance",              "income",   3_000_000,  16, 1.0,  False, None, None),
-    ("Prior-Year Tax Refund",            "income",   4_000_000,  78, 0.9,  False, None, None),
-    ("Mountain House Sale Proceeds",     "income",  10_400_000, 184, 0.85, False, None, None),
-    ("Overseas Payout",                  "income",  11_400_000, 474, 0.5,  False, None, None),
-    ("Auto loan payoff savings",         "income",      87_000, 443, 1.0,  True,  "monthly", None),
-    ("Startup A vests (1.5x)",           "income",   7_800_000, ("months", 60), 0.7, False, None, None),
-    ("Startup B vests (1.5x)",           "income",   2_200_000, ("months", 72), 0.6, False, None, None),
-    ("Startup C vests (2x)",             "income",   4_500_000, ("months", 84), 0.5, False, None, None),
+    ("City Loft Special Assessment",     "expense",    420_000, -13, 1.0,  True,  "monthly", 139),
+    ("Boat Payment",                     "expense",    460_000,  14, 1.0,  False, None, None),
+    ("Remaining Severance",              "income",   2_800_000,  16, 1.0,  False, None, None),
+    ("Prior-Year Tax Refund",            "income",   3_600_000,  78, 0.9,  False, None, None),
+    ("Desert Casita Sale Proceeds",      "income",  11_200_000, 184, 0.85, False, None, None),
+    ("RRSP Cash-Out (Canada)",           "income",  10_800_000, 474, 0.5,  False, None, None),
+    ("Auto loan payoff savings",         "income",      82_000, 443, 1.0,  True,  "monthly", None),
+    ("Startup A vests (1.5x)",           "income",  12_600_000, ("months", 60), 0.7, False, None, None),
+    ("Startup B vests (1.5x)",           "income",   2_900_000, ("months", 72), 0.6, False, None, None),
+    ("Startup C vests (2x)",             "income",   6_200_000, ("months", 84), 0.5, False, None, None),
 ]
 
 
@@ -158,45 +158,45 @@ CASHFLOW_EVENTS = [
 # (key, name, address, color, value_cents, loan_cents, purchase_cents,
 #  potential_rental_cents, potential_rental_full_cents, notes)
 DEMO_PROPERTIES = [
-    ("coastal_condo", "Coastal Condo", "123 Shoreline Ave #1100, Beach City", "#b04a56",
-     51_000_000, 32_500_000, 51_000_000, 260_000, 450_000,
-     ["Primary residence — owner-occupied, one room rented to a long-term tenant ($340/mo)",
-      "Monthly HOA ~$700 via CondoPay; special assessment running this year",
+    ("city_loft", "City Loft", "808 Foundry Row #4W, Midvale City", "#b04a56",
+     46_800_000, 29_600_000, 46_800_000, 240_000, 420_000,
+     ["Primary residence — owner-occupied, spare room rented to a long-term tenant ($360/mo)",
+      "Monthly HOA ~$680 via LoftPay; special assessment running this year",
       "Downsize plan: sell around month 60 (see the property_sales config)"]),
-    ("mountain_house", "Mountain House", "48 Powder Run Rd, Highland Valley", "#4a6fa5",
-     39_800_000, 26_700_000, 38_500_000, 290_000, None,
-     ["Secondary home, under contract to sell in ~6 months",
-      "Short-term-rented in ski season via Alpine Stays until the sale",
-      "Carry cost ~$2,400/mo all-in while held"]),
-    ("river_house", "River House", "Floating Home #7, River City", "#2e8b6e",
-     39_600_000, 0, 22_000_000, 330_000, None,
-     ["Floating home — fully paid off, rented long-term through Acme Property Mgmt",
-      "Moorage fee paid by check (see the category-gated 'Check #' rule)",
-      "The income property: ~$3,300/mo rent against ~$1,000/mo carry"]),
+    ("desert_casita", "Desert Casita", "17 Ocotillo Court, Dry Wells", "#c4813d",
+     38_600_000, 23_800_000, 36_100_000, 280_000, None,
+     ["Snowbird short-term rental, under contract to sell in ~6 months",
+      "High season is winter (Sunbelt Stays payouts Nov-Mar) until the sale",
+      "Carry cost ~$2,250/mo all-in while held"]),
+    ("lakeside_cabin", "Lakeside Cabin", "9 Loon Point, Pinecrest Lake", "#2e8b6e",
+     42_800_000, 0, 21_200_000, 350_000, None,
+     ["Fully paid off, rented long-term through Northwoods Property Mgmt",
+      "Dock slip lease paid by check (see the category-gated 'Check #' rule)",
+      "The income property: ~$3,450/mo rent against ~$1,100/mo carry"]),
 ]
 
 # (property_key, pattern, rule_kind, expense_category, require_tx_category, priority)
 DEMO_PROPERTY_RULES = [
-    ("coastal_condo", "Lender A Mortgage",        "expense", "Mortgage",              None,   10),
-    ("coastal_condo", "CondoPay",                 "expense", "HOA / Condo Fees",      None,   10),
-    ("coastal_condo", "Condo Assoc",              "expense", "Assessments",           None,   10),
-    ("coastal_condo", "Coastal Power",            "expense", "Utilities",             None,   10),
-    ("coastal_condo", "Coastal Home Insurance",   "expense", "Insurance",             None,   10),
-    ("coastal_condo", "Beach City Treasurer",     "expense", "Property Tax",          None,   10),
-    ("coastal_condo", "Tenant Direct",            "income",  None,                    None,   20),
-    ("mountain_house", "Lender B Mortgage",       "expense", "Mortgage",              None,   10),
-    ("mountain_house", "Alpine Power",            "expense", "Utilities",             None,   10),
-    ("mountain_house", "Highland Home Insurance", "expense", "Insurance",             None,   10),
-    ("mountain_house", "Highland County Treasurer", "expense", "Property Tax",        None,   10),
-    ("mountain_house", "Peak Cleaners",           "expense", "Repairs / Maintenance", None,   10),
-    ("mountain_house", "Alpine Stays",            "income",  None,                    None,   20),
-    ("river_house", "Shield Insurance",           "expense", "Insurance",             None,   10),
-    ("river_house", "Metro Gas",                  "expense", "Utilities",             None,   10),
-    ("river_house", "Valley Electric",            "expense", "Utilities",             None,   10),
-    ("river_house", "River County Tax",           "expense", "Property Tax",          None,   10),
-    ("river_house", "Ace Hardware",               "expense", "Repairs / Maintenance", None,   10),
-    ("river_house", "Check #",                    "expense", "Moorage",               "Rent", 60),
-    ("river_house", "Acme Property Mgmt",         "income",  None,                    None,   20),
+    ("city_loft", "Granite Home Loans",           "expense", "Mortgage",              None,   10),
+    ("city_loft", "LoftPay",                      "expense", "HOA / Condo Fees",      None,   10),
+    ("city_loft", "Loft Assoc",                   "expense", "Assessments",           None,   10),
+    ("city_loft", "Metro Power",                  "expense", "Utilities",             None,   10),
+    ("city_loft", "Cornerstone Home Insurance",   "expense", "Insurance",             None,   10),
+    ("city_loft", "Metro County Treasurer",       "expense", "Property Tax",          None,   10),
+    ("city_loft", "Tenant Direct",                "income",  None,                    None,   20),
+    ("desert_casita", "Sunline Mortgage",         "expense", "Mortgage",              None,   10),
+    ("desert_casita", "Desert Sky Power",         "expense", "Utilities",             None,   10),
+    ("desert_casita", "Sunbelt Home Insurance",   "expense", "Insurance",             None,   10),
+    ("desert_casita", "Mesa County Treasurer",    "expense", "Property Tax",          None,   10),
+    ("desert_casita", "Adobe Cleaners",           "expense", "Repairs / Maintenance", None,   10),
+    ("desert_casita", "Sunbelt Stays",            "income",  None,                    None,   20),
+    ("lakeside_cabin", "Lakeland Mutual",         "expense", "Insurance",             None,   10),
+    ("lakeside_cabin", "Lakeshore Propane",       "expense", "Utilities",             None,   10),
+    ("lakeside_cabin", "Valley Electric",         "expense", "Utilities",             None,   10),
+    ("lakeside_cabin", "Pinecrest County",        "expense", "Property Tax",          None,   10),
+    ("lakeside_cabin", "Ace Hardware",            "expense", "Repairs / Maintenance", None,   10),
+    ("lakeside_cabin", "Check #",                 "expense", "Moorage",               "Rent", 60),
+    ("lakeside_cabin", "Northwoods Property Mgmt", "income", None,                    None,   20),
 ]
 
 
@@ -215,56 +215,56 @@ TXN_WINDOW_DAYS = 548  # ~18 months
 # (merchant, raw_category, cadence, amount_cents, jitter_pct, account, window)
 DEMO_TRANSACTIONS = [
     # --- income (ledger realism; property rents classify via income rules) ---
-    ("Employer Payroll",        "Paychecks",       ("interval", 14),   650_000, 0.0,  "Everyday Checking", (-TXN_WINDOW_DAYS, -21)),
-    ("Employer Severance",      "Paychecks",       ("interval", 14),   315_000, 0.0,  "Everyday Checking", (-84, 0)),
+    ("Employer Payroll",        "Paychecks",       ("interval", 14),   605_000, 0.0,  "Everyday Checking", (-TXN_WINDOW_DAYS, -21)),
+    ("Employer Severance",      "Paychecks",       ("interval", 14),   290_000, 0.0,  "Everyday Checking", (-84, 0)),
     ("State Employment Dept",   "Other Income",    ("interval", 14),    62_000, 0.0,  "Everyday Checking", (-28, 0)),
-    ("Interest Payment",        "Interest",        ("monthly", 1),      19_500, 0.15, "High-Yield Savings", None),
-    ("Acme Property Mgmt",      "Business Income", ("monthly", 3),     330_000, 0.0,  "Everyday Checking", None),
-    ("Tenant Direct",           "Business Income", ("monthly", 5),      34_000, 0.0,  "Everyday Checking", None),
+    ("Interest Payment",        "Interest",        ("monthly", 1),      39_000, 0.15, "High-Yield Savings", None),
+    ("Northwoods Property Mgmt", "Business Income", ("monthly", 3),    345_000, 0.0,  "Everyday Checking", None),
+    ("Tenant Direct",           "Business Income", ("monthly", 5),      36_000, 0.0,  "Everyday Checking", None),
     # --- property expenses (classified by the rules above) ---
-    ("Lender A Mortgage",       "Mortgage & Rent", ("monthly", 1),    -310_000, 0.0,  "Everyday Checking", None),
-    ("CondoPay",                "Mortgage & Rent", ("monthly", 5),     -70_000, 0.0,  "Everyday Checking", None),
-    ("Coastal Power & Light",   "Utilities",       ("monthly", 12),    -14_500, 0.30, "Everyday Checking", None),
-    ("Coastal Home Insurance",  "Insurance",       ("monthly", 8),     -21_000, 0.0,  "Everyday Checking", None),
-    ("Lender B Mortgage",       "Mortgage & Rent", ("monthly", 1),    -180_000, 0.0,  "Everyday Checking", None),
-    ("Alpine Power Co-op",      "Utilities",       ("monthly", 15),     -8_500, 0.35, "Everyday Checking", None),
-    ("Peak Cleaners",           "Home Improvement", ("interval", 40),   -12_000, 0.35, "Everyday Checking", None),
-    ("Condo Assoc Special Assessment", "Mortgage & Rent", ("monthly", 6), -45_000, 0.0, "Everyday Checking", (-45, 0)),
-    ("Highland Home Insurance", "Insurance",       ("monthly", 20),    -14_000, 0.0,  "Everyday Checking", None),
-    ("Shield Insurance",        "Insurance",       ("monthly", 16),    -12_000, 0.0,  "Everyday Checking", None),
-    ("Metro Gas",               "Utilities",       ("monthly", 22),     -6_000, 0.45, "Everyday Checking", None),
-    ("Valley Electric",         "Utilities",       ("monthly", 24),     -7_000, 0.30, "Everyday Checking", None),
+    ("Granite Home Loans",      "Mortgage & Rent", ("monthly", 1),    -285_000, 0.0,  "Everyday Checking", None),
+    ("LoftPay HOA",             "Mortgage & Rent", ("monthly", 5),     -68_000, 0.0,  "Everyday Checking", None),
+    ("Metro Power & Light",     "Utilities",       ("monthly", 12),    -13_500, 0.30, "Everyday Checking", None),
+    ("Cornerstone Home Insurance", "Insurance",    ("monthly", 8),     -19_000, 0.0,  "Everyday Checking", None),
+    ("Sunline Mortgage",        "Mortgage & Rent", ("monthly", 1),    -165_000, 0.0,  "Everyday Checking", None),
+    ("Desert Sky Power",        "Utilities",       ("monthly", 15),     -7_500, 0.35, "Everyday Checking", None),
+    ("Adobe Cleaners",          "Home Improvement", ("interval", 40),  -11_500, 0.35, "Everyday Checking", None),
+    ("Loft Assoc Special Assessment", "Mortgage & Rent", ("monthly", 6), -420_000, 0.0, "Everyday Checking", (-45, 0)),
+    ("Sunbelt Home Insurance",  "Insurance",       ("monthly", 20),    -13_000, 0.0,  "Everyday Checking", None),
+    ("Lakeland Mutual",         "Insurance",       ("monthly", 16),    -12_500, 0.0,  "Everyday Checking", None),
+    ("Lakeshore Propane",       "Utilities",       ("monthly", 22),     -7_000, 0.45, "Everyday Checking", None),
+    ("Valley Electric",         "Utilities",       ("monthly", 24),     -6_500, 0.30, "Everyday Checking", None),
     ("Ace Hardware",            "Home Improvement", ("interval", 42),  -11_000, 0.60, "Everyday Checking", None),
     # --- personal spending (the Tracker's world: non-property, non-tax) ---
     ("Green Basket Market",     "Groceries",       ("weekly", 5, 0.90), -19_500, 0.35, "Everyday Checking", None),
-    ("Harborside Fish Co",      "Groceries",       ("interval", 24),    -9_500, 0.40, "Everyday Checking", None),
-    ("Driftwood Coffee",        "Coffee Shops",    ("weekly", 1, 0.75),    -900, 0.30, "Everyday Checking", None),
+    ("City Market Provisions",  "Groceries",       ("interval", 24),    -9_500, 0.40, "Everyday Checking", None),
+    ("Corner Grind Coffee",     "Coffee Shops",    ("weekly", 1, 0.75),    -900, 0.30, "Everyday Checking", None),
     ("Salt & Vine",             "Restaurants & Bars", ("interval", 11), -10_500, 0.40, "Everyday Checking", None),
-    ("Harbor Thai",             "Restaurants & Bars", ("interval", 13),  -6_200, 0.30, "Everyday Checking", None),
+    ("Basil Thai",              "Restaurants & Bars", ("interval", 13),  -6_200, 0.30, "Everyday Checking", None),
     ("Taco Cantina",            "Fast Food",       ("interval", 16),    -3_800, 0.30, "Everyday Checking", None),
-    ("Boardwalk Pizza",         "Restaurants & Bars", ("interval", 19), -4_400, 0.30, "Everyday Checking", None),
+    ("Brick Oven Pizza",        "Restaurants & Bars", ("interval", 19), -4_400, 0.30, "Everyday Checking", None),
     ("Fuel Stop",               "Gas & Fuel",      ("interval", 10),    -5_800, 0.25, "Everyday Checking", None),
     ("Truck & Auto Service",    "Service & Parts", ("interval", 100),  -31_000, 0.50, "Everyday Checking", None),
     ("Roadstar Auto Insurance", "Insurance",       ("monthly", 12),    -16_800, 0.0,  "Everyday Checking", None),
-    ("Bridge Health Plan",      "Insurance",       ("monthly", 1),     -61_000, 0.0,  "Everyday Checking", None),
+    ("Family Health Plan",      "Insurance",       ("monthly", 1),    -115_000, 0.0,  "Everyday Checking", None),
     ("Wellcare Pharmacy",       "Pharmacy",        ("interval", 20),    -3_800, 0.45, "Everyday Checking", None),
-    ("Bayview Family Clinic",   "Medical",         ("interval", 75),   -14_000, 0.50, "Everyday Checking", None),
+    ("Midtown Family Clinic",   "Medical",         ("interval", 75),   -14_000, 0.50, "Everyday Checking", None),
     ("Ridge Fitness",           "Health & Fitness", ("monthly", 3),     -4_900, 0.0,  "Everyday Checking", None),
     ("Metro Wireless",          "Mobile Phone",    ("monthly", 8),      -9_500, 0.0,  "Everyday Checking", None),
     ("City Fiber Internet",     "Internet & Cable", ("monthly", 12),    -7_900, 0.0,  "Everyday Checking", None),
     ("StreamFlix",              "Entertainment & Recreation", ("monthly", 4),  -1_900, 0.0, "Everyday Checking", None),
     ("CloudTunes",              "Music",           ("monthly", 15),     -1_100, 0.0,  "Everyday Checking", None),
     ("PrimeShip",               "Shopping",        ("monthly", 17),     -1_400, 0.0,  "Everyday Checking", None),
-    ("Harbor Marina Moorage",   "Boat Storage",    ("monthly", 2),     -38_500, 0.0,  "Everyday Checking", None),
-    ("Marina Fuel Dock",        "Boat Gas",        ("interval", 26),    -8_800, 0.40, "Everyday Checking", None),
+    ("Lakeview Marina Slip",    "Boat Storage",    ("monthly", 2),     -31_500, 0.0,  "Everyday Checking", None),
+    ("Lakeview Fuel Dock",      "Boat Gas",        ("interval", 26),    -7_800, 0.40, "Everyday Checking", None),
     ("Boatworks Supply",        "Boat Service & Parts", ("interval", 60), -15_000, 0.50, "Everyday Checking", None),
     ("ShopFast",                "Shopping",        ("interval", 6),     -5_400, 0.60, "Everyday Checking", None),
     ("Outdoor Outfitters",      "Clothing",        ("interval", 45),   -16_000, 0.50, "Everyday Checking", None),
     ("Page & Bindery",          "Books",           ("interval", 40),    -2_800, 0.40, "Everyday Checking", None),
     ("CinePlex",                "Entertainment & Recreation", ("interval", 30), -3_400, 0.30, "Everyday Checking", None),
     ("Clip Joint Barbers",      "Personal Care",   ("interval", 32),    -3_800, 0.15, "Everyday Checking", None),
-    ("Coastal Air",             "Air Travel",      ("interval", 130),  -42_000, 0.30, "Everyday Checking", None),
-    ("Seaside Hotel",           "Hotel",           ("interval", 150),  -52_000, 0.30, "Everyday Checking", None),
+    ("Skyline Air",             "Air Travel",      ("interval", 130),  -42_000, 0.30, "Everyday Checking", None),
+    ("Lakeview Lodge",          "Hotel",           ("interval", 150),  -52_000, 0.30, "Everyday Checking", None),
     ("Bloom & Branch",          "Gifts & Donations", ("interval", 55),  -6_500, 0.40, "Everyday Checking", None),
     ("Community Foodbank",      "Gifts & Donations", ("monthly", 25),   -5_000, 0.0,  "Everyday Checking", None),
     ("Cash & ATM",              "Cash & ATM",      ("interval", 40),   -10_000, 0.0,  "Everyday Checking", None),
@@ -272,35 +272,36 @@ DEMO_TRANSACTIONS = [
 
 # Semiannual property tax bills: (merchant, amount_cents, months of year)
 DEMO_PROPERTY_TAX_BILLS = [
-    ("Beach City Treasurer",       -270_000, (4, 10)),
-    ("Highland County Treasurer",  -195_000, (5, 11)),
-    ("River County Tax",           -105_000, (4, 10)),
+    ("Metro County Treasurer",     -255_000, (4, 10)),
+    ("Mesa County Treasurer",      -180_000, (5, 11)),
+    ("Pinecrest County Treasurer", -110_000, (4, 10)),
 ]
 
 
 def build_demo_config_values(anchor: date) -> dict:
     """FIRE config for the demo persona, anchored to the seed date.
 
-    Age ~52.75, retiring now, bridging to 59½ on severance + SEPP/72(t) + an
-    overseas pension drawdown. Uses the generic property_sales mechanism (the
-    documented path): sell the Mountain House in ~6 months, downsize out of the
-    Coastal Condo at month 60, proceeds compound in a taxable brokerage pool.
+    Age ~51.75, married filing jointly, retiring now, bridging to 59½ on
+    severance + SEPP/72(t) + a Canadian RRSP drawdown. Uses the generic
+    property_sales mechanism (the documented path): sell the Desert Casita in
+    ~6 months, downsize out of the City Loft at month 60, proceeds compound in
+    a taxable brokerage pool.
     """
-    dob = anchor.replace(day=1) - relativedelta(months=633)  # age 52y 9mo
+    dob = anchor.replace(day=1) - relativedelta(months=621)  # age 51y 9mo
     return dict(
         date_of_birth=dob,
-        target_retirement_age=53,
+        target_retirement_age=52,
         life_expectancy=90,
         fire_variant="regular",
         safe_withdrawal_rate=4.0,
         expected_annual_return=7.0,
         expected_inflation_rate=3.0,
-        target_annual_spending=15_300_000,  # $153,000/yr = $12,750/mo (cents)
-        social_security_monthly=465_000,  # $4,650/mo at full retirement age (cents)
+        target_annual_spending=15_600_000,  # $156,000/yr = $13,000/mo (cents)
+        social_security_monthly=540_000,  # $5,400/mo combined at full retirement age (cents)
         social_security_start_age=67,
         pension_monthly=None,
         pension_start_age=None,
-        healthcare_monthly_cost=60_000,  # $600/mo pre-Medicare (cents)
+        healthcare_monthly_cost=115_000,  # $1,150/mo for the couple pre-Medicare (cents)
         medicare_start_age=65,
         rmd_start_age=73,
         target_legacy=0,
@@ -313,27 +314,28 @@ def build_demo_config_values(anchor: date) -> dict:
             "rental_occupancy_rate": 1.0,
             # Occupancy haircut (when a scenario lowers the rate) applies only
             # to the income property's rental source
-            "occupancy_source_match": ["river house"],
+            "occupancy_source_match": ["lakeside cabin"],
             "tax": {
-                "filing_status": "single",
-                "household_size": 1,
+                "filing_status": "married_filing_jointly",
+                "household_size": 2,
                 "cost_basis_pct": 0.6,
                 "state": "CO",
                 "state_tax_rate": 4.4,
             },
             # SEPP/72(t): fixed draws from the Rollover IRA starting month 12
             "sepp": {
-                "ira_a_balance": 402_000,
-                "ira_b_balance": 165_000,
-                "sepp_monthly": 2_100,
+                "ira_a_balance": 436_000,
+                "ira_b_balance": 172_000,
+                "sepp_monthly": 2_275,
                 "sepp_start_month": 12,
                 "ira_growth_rate": 0.06,
             },
-            # Overseas pension cash-out: $1,900/mo net starting month 12
+            # Canadian RRSP cash-out (worked in Toronto in the 2000s):
+            # $1,850/mo net starting month 12
             "rrsp": {
-                "monthly_net": 1_900,
+                "monthly_net": 1_850,
                 "start_month": 12,
-                "total_available": 205_000,
+                "total_available": 198_000,
             },
             # Sale proceeds land in a taxable brokerage pool (6.5% real),
             # drawn before retirement accounts when cash runs thin
@@ -341,45 +343,45 @@ def build_demo_config_values(anchor: date) -> dict:
             # The documented property-sale mechanism (dollars, not cents)
             "property_sales": [
                 {
-                    "key": "mountain_house",
+                    "key": "desert_casita",
                     "re_bucket": "secondary",
                     "sale_month": 6,
-                    "value": 398_000,
-                    "cost_basis": 385_000,
+                    "value": 386_000,
+                    "cost_basis": 361_000,
                     "agent_fee_pct": 0.06,
                     "ltcg_rate": 0.15,
-                    "state_tax_rate": 0.05,
+                    "state_tax_rate": 0.045,
                     "section_121_exclusion": 0,  # not the primary residence
-                    "current_mortgage_balance": 267_000,
-                    "mortgage_rate": 0.07,
-                    "mortgage_pi": 1_800,
-                    "monthly_cost": 2_400,
+                    "current_mortgage_balance": 238_000,
+                    "mortgage_rate": 0.0675,
+                    "mortgage_pi": 1_650,
+                    "monthly_cost": 2_250,
                     "in_base_burn": False,  # carry cost sits outside the spending target while held
                     "post_sale_rent": 0,
                     "monthly_income": 0,  # its rental source ends before the sale
                     "proceeds_to": "taxable",
                     # The projection owns this sale — ignore the planned
-                    # "Mountain House Sale Proceeds" cashflow event (the Runway
+                    # "Desert Casita Sale Proceeds" cashflow event (the Runway
                     # page still uses it)
-                    "suppress_cashflow_match": "mountain house",
+                    "suppress_cashflow_match": "desert casita",
                 },
                 {
-                    "key": "coastal_condo",
+                    "key": "city_loft",
                     "re_bucket": "primary",
                     "sale_month": 60,
-                    "value": 510_000,
-                    "cost_basis": 510_000,
+                    "value": 468_000,
+                    "cost_basis": 468_000,
                     "agent_fee_pct": 0.06,
                     "ltcg_rate": 0.15,
                     "state_tax_rate": 0.0,
-                    "section_121_exclusion": 250_000,  # single-filer §121
-                    "current_mortgage_balance": 325_000,
-                    "mortgage_rate": 0.065,
-                    "mortgage_pi": 3_100,
-                    "monthly_cost": 6_150,
+                    "section_121_exclusion": 500_000,  # married-filing-jointly §121
+                    "current_mortgage_balance": 296_000,
+                    "mortgage_rate": 0.062,
+                    "mortgage_pi": 2_850,
+                    "monthly_cost": 5_900,
                     "in_base_burn": True,  # all-in cost is inside the spending target
-                    "post_sale_rent": 2_500,
-                    "monthly_income": 340,  # condo rental that ends at sale
+                    "post_sale_rent": 2_400,
+                    "monthly_income": 360,  # spare-room rental that ends at sale
                     "proceeds_to": "taxable",
                 },
             ],
@@ -391,10 +393,10 @@ def build_demo_config_values(anchor: date) -> dict:
                 "cash_savings_rate_late": 0.0,
                 "cash_savings_cutover_month": 60,
                 "re_appreciation_rate": 0.01,
-                "primary_property_purchase_price": 510_000,
+                "primary_property_purchase_price": 468_000,
                 "primary_property_agent_fee_pct": 0.06,
-                "primary_property_mortgage_pi": 3_100,
-                "primary_property_cost_basis": 510_000,
+                "primary_property_mortgage_pi": 2_850,
+                "primary_property_cost_basis": 468_000,
                 "primary_property_ltcg_rate": 0.15,
                 "ss_early_reduction": 0.70,
                 "ss_claim_age": 62,
@@ -489,28 +491,28 @@ def generate_demo_transactions(anchor: date) -> list[dict]:
                 emit(d, merchant, "Taxes", amount, "Everyday Checking")
             d += relativedelta(months=1)
 
-    # Ski-season short-term-rental payouts for the Mountain House: bigger and
-    # more frequent in winter, occasional in summer, nothing in the shoulders.
+    # Snowbird-season short-term-rental payouts for the Desert Casita: bigger
+    # and more frequent in winter, occasional in summer, quiet in the shoulders.
     d = start
     while d <= anchor:
         if d.month in (11, 12, 1, 2, 3):
             for _ in range(2):
-                emit(d.replace(day=rng.randint(2, 27)), "Alpine Stays Payout",
-                     "Business Income", int(95_000 * rng.uniform(0.6, 1.5)),
+                emit(d.replace(day=rng.randint(2, 27)), "Sunbelt Stays Payout",
+                     "Business Income", int(90_000 * rng.uniform(0.6, 1.5)),
                      "Everyday Checking")
         elif d.month in (6, 7, 8) and rng.random() < 0.5:
-            emit(d.replace(day=rng.randint(2, 27)), "Alpine Stays Payout",
+            emit(d.replace(day=rng.randint(2, 27)), "Sunbelt Stays Payout",
                  "Business Income", int(45_000 * rng.uniform(0.7, 1.3)),
                  "Everyday Checking")
         d += relativedelta(months=1)
 
-    # Floating-home moorage, paid by numbered check — exercises the
+    # The cabin's dock-slip lease, paid by numbered check — exercises the
     # category-gated "Check #" rule (only a "Rent"-categorized check matches).
     check_no = 1041
     for m in range(TXN_WINDOW_DAYS // 30, -1, -1):
         d = _month_day(anchor, m, 6)
         if start <= d <= anchor:
-            emit(d, f"Check #{check_no}", "Rent", -65_000, "Everyday Checking")
+            emit(d, f"Check #{check_no}", "Rent", -58_000, "Everyday Checking")
             check_no += 1
 
     return rows
@@ -696,25 +698,25 @@ async def seed(force: bool, with_config: bool) -> None:
                 source=DataSource.MANUAL,
             ))
 
-        # Two peer-to-peer rent deposits for the Mountain House. P2P merchants
+        # Two peer-to-peer rent deposits for the Desert Casita. P2P merchants
         # carry no property signal, so rules can never classify them: one is
         # manually assigned (the override workflow), one is left unclassified —
         # find it in the Transactions ledger and assign it yourself.
         checking_id = accounts_by_name["Everyday Checking"].id
         session.add(Transaction(
             account_id=checking_id, external_id=None,
-            date=anchor - timedelta(days=41), amount=72_500,
+            date=anchor - timedelta(days=41), amount=68_500,
             category="Other Income", merchant="PayFriend",
-            notes="Ski-week rent, paid person-to-person",
+            notes="Snowbird-week rent, paid person-to-person",
             source=DataSource.MANUAL,
-            property_id=props_by_key["mountain_house"].id,
+            property_id=props_by_key["desert_casita"].id,
             property_category="Rental Income", property_source="manual",
         ))
         session.add(Transaction(
             account_id=checking_id, external_id=None,
-            date=anchor - timedelta(days=6), amount=72_500,
+            date=anchor - timedelta(days=6), amount=68_500,
             category="Other Income", merchant="PayFriend",
-            notes="Ski-week rent — unclassified on purpose: assign it to a property from the Transactions page",
+            notes="Snowbird-week rent — unclassified on purpose: assign it to a property from the Transactions page",
             source=DataSource.MANUAL,
         ))
         await session.flush()

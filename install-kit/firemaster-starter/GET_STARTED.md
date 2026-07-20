@@ -103,7 +103,7 @@ This is the feature the whole app exists to serve.
   > config first, build the overrides, save it, activate it, and show me the impact.*
 
 - **Set up a property** (if you own one) — record + classification rules:
-  > *I own a rental called River House worth ~$450k with a $280k mortgage. Add it, create rules so
+  > *I own a rental called Cedar Duplex worth ~$450k with a $280k mortgage. Add it, create rules so
   > Home Depot and my property manager get classified to it, and reclassify my transactions.*
 
 - **Get a report** anytime:

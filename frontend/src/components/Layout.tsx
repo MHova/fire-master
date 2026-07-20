@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { label: "Transactions", path: "/transactions", active: true },
   { label: "Properties", path: "/properties", active: true },
   { label: "Retirement", path: "/retirement", active: true },
+  { label: "Tax Planning", path: "/tax", active: true },
 ];
 
 export default function Layout({ children }: { children: ReactNode }) {
