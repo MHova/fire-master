@@ -71,7 +71,9 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    command: ["sh", "-c", "uv run alembic upgrade head && (uv run python ../scripts/seed_demo.py --if-empty || true)"]
+    # Demo extras after the base seed: what-if scenarios so the Scenarios page is
+    # alive (seed_demo_scenarios.py self-guards on the demo_persona sentinel).
+    command: ["sh", "-c", "uv run alembic upgrade head && (uv run python ../scripts/seed_demo.py --if-empty || true) && (uv run python ../scripts/seed_demo_scenarios.py || true)"]
 
   backend:
     image: ghcr.io/gdb-mtx/firemaster-backend:latest
