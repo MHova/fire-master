@@ -69,3 +69,6 @@ htmlcov/
 
 # Hosted-demo Caddy state (TLS certs, ACME account) — never commit
 caddy/
+
+# Playwright MCP debug artifacts (snapshots/console logs) — never commit
+.playwright-mcp/
