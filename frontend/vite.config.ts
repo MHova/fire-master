@@ -6,6 +6,12 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   return {
     plugins: [react(), tailwindcss()],
+    build: {
+      // Bundles go to /static/, NOT vite's default /assets/ — the app has real
+      // routes at /assets (Asset Hub), and in the nginx prod build the directory
+      // was shadowing the route (refresh/deep-link on /assets returned 403).
+      assetsDir: 'static',
+    },
     server: {
       proxy: {
         '/api': {
