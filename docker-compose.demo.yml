@@ -1,0 +1,127 @@
+# Hosted public demo — demo.firemaster.io.
+#
+# STANDALONE compose file (not an overlay). Two reasons:
+#   1. Compose overlays can only ADD to a base file — they can't remove the Celery
+#      services (dead weight in demo mode: sync is hard-disabled, nothing to schedule)
+#      or un-publish ports.
+#   2. The demo must expose ONLY Caddy (80/443). Postgres, Redis, backend, and
+#      frontend stay on the internal network with no host ports at all.
+#
+# Differences from docker-compose.public.yml (the install-kit compose):
+#   - DEMO_MODE is HARDCODED "true" — the safety lock (Monarch sync impossible)
+#     cannot be forgotten via a missing env var.
+#   - No Celery worker/beat, no monarch_session volume (never loaded in demo mode).
+#   - Production frontend: static build on nginx (frontend/Dockerfile.prod),
+#     not the Vite dev server.
+#   - Caddy in front: TLS + routing (/api/* -> backend, rest -> frontend).
+#     Certs live on BIND MOUNTS (./caddy/), which `down -v` does NOT remove —
+#     the nightly reset (scripts/reset-demo.sh) wipes the DB volume without
+#     triggering a Let's Encrypt re-issuance (rate limits!).
+#   - Explicit project name so volumes are firemaster-demo_* — never collides
+#     with a dev stack or anything else on the box.
+#
+# First deploy (see FIREMasterPrivate/strategy/HOSTING_DEMO.md for the full playbook):
+#   touch backend/.env      # bind-mount target must EXIST as a file, or Docker creates a dir
+#   docker compose -f docker-compose.demo.yml run --rm --no-deps backend uv run python -m app.setup
+#   docker compose -f docker-compose.demo.yml up -d --build
+#
+# Nightly reset (cron): scripts/reset-demo.sh — down -v (fresh DB), pull, up (reseeds).
+
+name: firemaster-demo
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    # No host port: internal network only.
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-firemaster}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-firemaster}
+      POSTGRES_DB: ${POSTGRES_DB:-firemaster}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-firemaster}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    # No host port: internal network only.
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # One-shot: migrate, then seed the demo persona into the empty DB, then exit.
+  # After the nightly `down -v` the DB volume is fresh, so this reseeds on every reset.
+  migrate:
+    image: ghcr.io/gdb-mtx/firemaster-backend:latest
+    volumes:
+      - ./backend/.env:/app/backend/.env   # runtime secrets; mounted file, NOT env_file (see docker-compose.public.yml header)
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-firemaster}:${POSTGRES_PASSWORD:-firemaster}@postgres:5432/${POSTGRES_DB:-firemaster}
+      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-firemaster}:${POSTGRES_PASSWORD:-firemaster}@postgres:5432/${POSTGRES_DB:-firemaster}
+      REDIS_URL: redis://redis:6379/0
+      DEMO_MODE: "true"
+      SEED_DEMO: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["sh", "-c", "uv run alembic upgrade head && (uv run python ../scripts/seed_demo.py --if-empty || true)"]
+
+  backend:
+    image: ghcr.io/gdb-mtx/firemaster-backend:latest
+    # No host port: only Caddy reaches backend:8000.
+    volumes:
+      - ./backend/.env:/app/backend/.env   # runtime secrets; mounted file, NOT env_file
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-firemaster}:${POSTGRES_PASSWORD:-firemaster}@postgres:5432/${POSTGRES_DB:-firemaster}
+      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-firemaster}:${POSTGRES_PASSWORD:-firemaster}@postgres:5432/${POSTGRES_DB:-firemaster}
+      REDIS_URL: redis://redis:6379/0
+      DEMO_MODE: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    command: uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    image: firemaster-frontend-prod:local
+    # No host port: only Caddy reaches frontend:80.
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "${CADDY_HTTP_PORT:-80}:80"
+      - "${CADDY_HTTPS_PORT:-443}:443"
+      - "${CADDY_HTTPS_PORT:-443}:443/udp"   # HTTP/3
+    environment:
+      # Default demo.firemaster.io (auto-HTTPS). Override for local testing:
+      #   DEMO_DOMAIN=":80" CADDY_HTTP_PORT=8080 docker compose -f docker-compose.demo.yml up
+      DEMO_DOMAIN: ${DEMO_DOMAIN:-demo.firemaster.io}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # BIND mounts (not named volumes) so `down -v` keeps the TLS certs.
+      - ./caddy/data:/data
+      - ./caddy/config:/config
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+
+volumes:
+  pgdata:

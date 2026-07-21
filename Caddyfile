@@ -1,0 +1,23 @@
+# Caddy config for the hosted public demo (docker-compose.demo.yml).
+#
+# With the default DEMO_DOMAIN (demo.firemaster.io), Caddy fetches and renews the
+# TLS certificate automatically — no certbot, no cron. DNS for the domain must
+# point at the host before first boot.
+#
+# Local smoke test (plain HTTP, no ACME):
+#   DEMO_DOMAIN=":80" CADDY_HTTP_PORT=8080 docker compose -f docker-compose.demo.yml up
+#   -> http://localhost:8080
+
+{$DEMO_DOMAIN:demo.firemaster.io} {
+	encode gzip
+
+	# API -> FastAPI backend (routes already live under /api, no rewrite needed)
+	handle /api/* {
+		reverse_proxy backend:8000
+	}
+
+	# Everything else -> the static SPA
+	handle {
+		reverse_proxy frontend:80
+	}
+}
