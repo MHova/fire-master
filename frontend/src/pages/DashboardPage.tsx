@@ -208,13 +208,19 @@ export default function DashboardPage() {
               </span>
             )}
             {syncStatus?.demo_mode ? (
-              <button
-                disabled
+              // Tooltip lives on the SPAN: browsers suppress mouse events on
+              // disabled controls, so a title on the button itself never shows.
+              <span
                 title="Disabled in the demo — the full app syncs your live Monarch Money accounts and transactions automatically. Get it at firemaster.io"
-                className="px-3 py-1.5 text-xs bg-[var(--bg-secondary)] border border-[var(--border)] rounded text-[var(--text-tertiary)] opacity-60 cursor-not-allowed"
+                className="cursor-not-allowed"
               >
-                Sync Now
-              </button>
+                <button
+                  disabled
+                  className="px-3 py-1.5 text-xs bg-[var(--bg-secondary)] border border-[var(--border)] rounded text-[var(--text-tertiary)] opacity-60 pointer-events-none"
+                >
+                  Sync Now
+                </button>
+              </span>
             ) : (
               <button
                 onClick={handleSync}
