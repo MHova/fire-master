@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
-# Nightly reset for the hosted public demo (docker-compose.demo.yml).
+# Periodic reset for the hosted public demo (docker-compose.demo.yml).
 #
 # Wipes the database volume (one visitor's edits don't persist for the next),
 # pulls fresh images so the demo tracks main, and brings the stack back up —
 # migrate reseeds the demo persona into the empty DB on the way up.
 # TLS certs survive: Caddy stores them on bind mounts, which `down -v` ignores.
 #
-# Cron (4am ET on a UTC box), with a log for the morning-after check:
-#   0 9 * * * /srv/firemaster/scripts/reset-demo.sh >> /var/log/firemaster-demo-reset.log 2>&1
+# Cron (every 2 hours — visitor sessions run minutes, not hours, so a 2h window
+# bounds how long one visitor's edits linger for the next), with a log:
+#   0 */2 * * * /srv/firemaster/scripts/reset-demo.sh >> /var/log/firemaster-demo-reset.log 2>&1
 #
-# ~10-20s of downtime per run.
+# ~10-20s of downtime per run. Safe to run manually anytime to force a clean slate.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."

@@ -208,9 +208,13 @@ export default function DashboardPage() {
               </span>
             )}
             {syncStatus?.demo_mode ? (
-              <span className="px-3 py-1.5 text-xs bg-[var(--bg-secondary)] border border-[var(--border)] rounded text-[var(--text-tertiary)]">
-                Demo data
-              </span>
+              <button
+                disabled
+                title="Disabled in the demo — in the full app this pulls your live accounts and transactions from Monarch Money"
+                className="px-3 py-1.5 text-xs bg-[var(--bg-secondary)] border border-[var(--border)] rounded text-[var(--text-tertiary)] opacity-60 cursor-not-allowed"
+              >
+                Sync Now
+              </button>
             ) : (
               <button
                 onClick={handleSync}

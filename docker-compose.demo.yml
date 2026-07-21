@@ -15,7 +15,7 @@
 #     not the Vite dev server.
 #   - Caddy in front: TLS + routing (/api/* -> backend, rest -> frontend).
 #     Certs live on BIND MOUNTS (./caddy/), which `down -v` does NOT remove —
-#     the nightly reset (scripts/reset-demo.sh) wipes the DB volume without
+#     the periodic reset (scripts/reset-demo.sh) wipes the DB volume without
 #     triggering a Let's Encrypt re-issuance (rate limits!).
 #   - Explicit project name so volumes are firemaster-demo_* — never collides
 #     with a dev stack or anything else on the box.
@@ -25,7 +25,7 @@
 #   docker compose -f docker-compose.demo.yml run --rm --no-deps backend uv run python -m app.setup
 #   docker compose -f docker-compose.demo.yml up -d --build
 #
-# Nightly reset (cron): scripts/reset-demo.sh — down -v (fresh DB), pull, up (reseeds).
+# Periodic reset (cron, every 2h): scripts/reset-demo.sh — down -v (fresh DB), pull, up (reseeds).
 
 name: firemaster-demo
 
@@ -57,7 +57,7 @@ services:
     restart: unless-stopped
 
   # One-shot: migrate, then seed the demo persona into the empty DB, then exit.
-  # After the nightly `down -v` the DB volume is fresh, so this reseeds on every reset.
+  # After each reset's `down -v` the DB volume is fresh, so this reseeds every time.
   migrate:
     image: ghcr.io/gdb-mtx/firemaster-backend:latest
     volumes:
