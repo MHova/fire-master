@@ -16,7 +16,9 @@ Casita at month 6, downsize out of the City Loft at month 60):
 4. "Trim Spending to $11K/mo"                     — pure spending-sensitivity what-if;
    no property changes.
 
-None is activated — the demo visitor picks and compares in the UI.
+The Baseline is activated by default (only when no scenario is already active —
+a restart never stomps a visitor's mid-session selection), so the Retirement
+page's scenario selector shows an engaged default instead of "No Scenario".
 
 Guard: refuses to run unless the FIRE config carries the demo_persona sentinel
 (so it can never write demo scenarios into a real dataset). Idempotent: upserts
@@ -176,6 +178,17 @@ async def main():
                 session.add(scenario)
                 created += 1
                 print(f"  CREATE scenario '{s_data['name']}'")
+
+        # Default the Baseline to active so the scenario UI starts engaged —
+        # but never steal focus from a scenario someone already activated.
+        result = await session.execute(select(FireScenario))
+        all_scenarios = result.scalars().all()
+        if not any(s.is_active for s in all_scenarios):
+            for s in all_scenarios:
+                if s.name.startswith("Baseline"):
+                    s.is_active = True
+                    print(f"  ACTIVATE '{s.name}' (default)")
+                    break
 
         await session.commit()
         print(f"Done: {created} created, {updated} updated.")

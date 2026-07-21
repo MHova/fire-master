@@ -210,7 +210,7 @@ export default function DashboardPage() {
             {syncStatus?.demo_mode ? (
               <button
                 disabled
-                title="Disabled in the demo — in the full app this pulls your live accounts and transactions from Monarch Money"
+                title="Disabled in the demo — the full app syncs your live Monarch Money accounts and transactions automatically. Get it at firemaster.io"
                 className="px-3 py-1.5 text-xs bg-[var(--bg-secondary)] border border-[var(--border)] rounded text-[var(--text-tertiary)] opacity-60 cursor-not-allowed"
               >
                 Sync Now
