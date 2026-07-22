@@ -16,7 +16,9 @@ Docker is the free tool that runs FIREMaster on your machine.
   drag it to Applications, and launch it. Wait until the whale icon in your menu bar stops animating.
 - **Windows:** Download the installer from the same page, run it, and reboot once when asked
   (this sets up "WSL2", which Docker needs). Launch Docker Desktop and wait for it to say
-  **"Engine running"**.
+  **"Engine running"**. If it instead shows **"WSL not installed"**: open PowerShell **as
+  administrator** (right-click → Run as administrator), run `wsl --install --no-distribution`,
+  reboot, and launch Docker Desktop again — it happens on some fresh Windows machines.
 
 You only ever do this once.
 
@@ -127,6 +129,8 @@ In a foreground session, press **`d`** to detach (app keeps running) or **Ctrl+C
 
 ## Troubleshooting
 
+- **Docker Desktop says "WSL not installed" (Windows)** — run `wsl --install --no-distribution`
+  in an administrator PowerShell, reboot, and launch Docker Desktop again.
 - **"Cannot connect to the Docker daemon"** — Docker Desktop isn't running. Launch it, wait for
   the engine to start, try again.
 - **"port is already allocated" / 5173 in use** — something else is using that port. Stop it,
