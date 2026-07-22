@@ -19,6 +19,9 @@ Docker is the free tool that runs FIREMaster on your machine.
   **"Engine running"**. If it instead shows **"WSL not installed"**: open PowerShell **as
   administrator** (right-click → Run as administrator), run `wsl --install --no-distribution`,
   reboot, and launch Docker Desktop again — it happens on some fresh Windows machines.
+  The first time the app starts, Windows Firewall may ask about **"Docker Desktop Backend"** —
+  click **Allow**. That's Docker's standard networking prompt; everything still runs only on
+  your machine.
 
 You only ever do this once.
 
