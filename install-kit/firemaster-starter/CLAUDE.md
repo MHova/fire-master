@@ -40,11 +40,32 @@ file, and guides. You work entirely through the HTTP API.
 - When unsure of a field's units or allowed values, **GET an existing record first** and mirror
   its shape rather than guessing.
 
+## Know which state you're in (check BEFORE trusting any projection)
+
+The app has three lifecycle states — diagnose with `GET /api/accounts` + `GET /api/fire/config`:
+
+1. **Demo** — seeded persona, `custom_assumptions.demo_persona: true`. Everything is coherent
+   fake data; analyze freely, say it's the demo.
+2. **Freshly connected (HALF-ONBOARDED — the trap):** the user connected Monarch, real accounts
+   imported, demo data cleared — but the **demo persona's FIRE config deliberately survives**
+   (it's a template for the user to rebuild), and **no account has a `fire_role` yet**. In this
+   state projections are meaningless: the engine can't map unenriched accounts into pools, so it
+   runs the leftover demo config (its SEPP block, its property sales) against constants —
+   expect nonsense like negative cash at month 0 or a failing plan that isn't real. Signs:
+   `demo_persona: true` in the config while accounts look like real institutions; `fire_role`
+   null everywhere; `/api/fire/metrics` showing `accessible_net_worth: 0`. **Say this plainly
+   to the user, do NOT present those projections as findings, and offer the onboarding below.**
+3. **Onboarded** — roles enriched, config rebuilt. Normal operation.
+
 ## Setting up the user's data (the three common tasks)
 
 After a user connects Monarch, accounts/transactions import automatically but **enrichment,
 scenarios, and property classification do not** — there's no UI for some of these, so this is
-where you earn your keep. Always confirm changes with the user before writing.
+where you earn your keep. This is exactly how to get from state 2 to state 3: enrich account
+roles first, then rebuild the FIRE config with the user's real numbers (walk `GET
+/api/fire/config` together and replace the demo persona's values, including deleting or
+replacing its `property_sales` blocks), then scenarios/properties as wanted. Always confirm
+changes with the user before writing.
 
 ### 1. Enrich accounts
 `PATCH /api/accounts/{account_id}/enrichment` — body fields (all optional, send only what changes):
