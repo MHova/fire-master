@@ -115,6 +115,15 @@ Typical mapping: checking → `operating_account`; HYSA/emergency → `cash_rese
 `speculative`; 401(k)/trad IRA → `retirement_core` (or `retirement_bridge` if it will fund a
 SEPP); Roth → `tax_free_reserve`; home → `primary_residence` + its loan `primary_mortgage`;
 rental → `income_producing`. Credit cards and cars can stay unenriched ("other").
+
+Two treatment facts to state honestly when reporting:
+- **`speculative` is modeled as liquid CASH** (joins the cash pool, earns the configured cash
+  yield) — no volatility or market-growth treatment, despite the name. Conservative by design.
+- **`illiquid_private` is inert** — it rides in net-worth totals (including the projection's
+  `total_at_end`) but is never drawn, never grows, never funds anything. So enriching illiquid
+  accounts raises the headline total WITHOUT making the plan any more survivable —
+  `cash_zero_month` and the drawable pools are the survivability signals, not `total_at_end`.
+  Never report an illiquid-driven total increase as a plan improvement.
 Get account IDs from `GET /api/accounts`. Enrichment **survives Monarch re-syncs** — it's yours.
 
 ### 2. Scenarios (what-if planning)
