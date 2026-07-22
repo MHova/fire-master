@@ -23,6 +23,13 @@
 		format json
 	}
 
+	# Zip-download counter: the firemaster.io landing page points its "Download
+	# the kit" button here so each download lands in OUR access log (Vercel has
+	# no per-file stats we can query). Just a redirect back to the real file.
+	handle /get/firemaster-starter.zip {
+		redir https://firemaster.io/firemaster-starter.zip 302
+	}
+
 	# API -> FastAPI backend (routes already live under /api, no rewrite needed)
 	handle /api/* {
 		reverse_proxy backend:8000
