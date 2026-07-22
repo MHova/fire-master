@@ -77,6 +77,13 @@ terms. Where each input comes from:
 So the projection total and "sum of my account balances" are NOT supposed to match unless
 enrichment is complete — don't reconcile them for a user without checking state first.
 
+**Double-count warning when going live:** the config-only blocks (SEPP, RRSP, `property_sales`,
+`taxable_pool`) are independent of account enrichment — leftover demo/template values in them
+run ALONGSIDE newly enriched real accounts, which can inflate the projection with pools that
+don't exist. When onboarding, rebuild those config blocks with the user's real numbers (or
+remove them) as part of going live — and if in doubt, enrich a small tranche of accounts first
+and verify the projection delta matches the balances added before writing the rest.
+
 ## Setting up the user's data (the three common tasks)
 
 After a user connects Monarch, accounts/transactions import automatically but **enrichment,
