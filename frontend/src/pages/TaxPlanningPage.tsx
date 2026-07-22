@@ -497,7 +497,7 @@ export default function TaxPlanningPage() {
         </div>
 
         {/* Stat Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             label="Total Tax"
             value={fmt(brackets.total_tax)}
@@ -525,9 +525,9 @@ export default function TaxPlanningPage() {
         </div>
 
         {/* Two-column: Monte Carlo + Brackets */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Monte Carlo Fan Chart */}
-          <div className="md:col-span-2 bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-4">
+          <div className="lg:col-span-2 bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-medium text-[var(--text-secondary)]">
                 Monte Carlo Simulation

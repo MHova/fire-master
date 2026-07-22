@@ -420,7 +420,7 @@ function EventsList({
   }, [events]);
 
   return (
-    <div className="md:col-span-3 bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-4">
+    <div className="lg:col-span-3 bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-medium text-[var(--text-secondary)]">
           Cash Flow Events
@@ -693,7 +693,7 @@ export default function RunwayPage() {
         </div>
 
         {/* Hero Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
           <StatCard
             label="Liquid Cash"
             value={formatCurrency(runway.current_cash)}
@@ -733,7 +733,7 @@ export default function RunwayPage() {
           <h3 className="text-xs uppercase tracking-wider text-[var(--text-secondary)] mb-3">
             Baseline Overrides
           </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 items-end">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 items-end">
             <div>
               <label className="block text-xs text-[var(--text-secondary)] mb-1">
                 Monthly Income ($)
@@ -899,9 +899,9 @@ export default function RunwayPage() {
         </div>
 
         {/* Two-column: Income/Expense Bars + Events */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           {/* Income vs Expenses (next 6 months) */}
-          <div className="md:col-span-2 bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-4">
+          <div className="lg:col-span-2 bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-4">
             <h3 className="text-sm font-medium text-[var(--text-secondary)] mb-3">
               Income vs Expenses (6 mo)
             </h3>

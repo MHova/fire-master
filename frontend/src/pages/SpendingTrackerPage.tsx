@@ -223,7 +223,7 @@ export default function SpendingTrackerPage() {
         {/* ============================================================ */}
         {/* PACE CARDS — Daily average, projected, budget remaining        */}
         {/* ============================================================ */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <PaceCard
             label="Daily Average"
             value={`${fmt(tracker.daily_average)}/day`}
@@ -389,9 +389,9 @@ export default function SpendingTrackerPage() {
         {/* ============================================================ */}
         {/* BOTTOM ROW: Categories + Monthly Scorecard                    */}
         {/* ============================================================ */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           {/* Category Breakdown */}
-          <div className="md:col-span-3 bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-4">
+          <div className="lg:col-span-3 bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-4">
             <h3 className="text-sm font-medium text-[var(--text-secondary)] mb-4">
               Where It's Going &middot;{" "}
               {new Date(
@@ -490,7 +490,7 @@ export default function SpendingTrackerPage() {
           </div>
 
           {/* Monthly Scorecard */}
-          <div className="md:col-span-2 bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-4">
+          <div className="lg:col-span-2 bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-4">
             <h3 className="text-sm font-medium text-[var(--text-secondary)] mb-4">
               Monthly Scorecard
             </h3>

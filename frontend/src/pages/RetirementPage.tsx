@@ -151,7 +151,7 @@ function MilestoneTimeline({ milestones, currentAge }: { milestones: Milestone[]
       </div>
 
       {/* Milestone cards row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6 pt-3 border-t border-[var(--border)]">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-6 pt-3 border-t border-[var(--border)]">
         {milestones.map((m) => {
           const color = MILESTONE_COLORS[m.status] ?? "var(--blue)";
           const yearsAway = m.age - currentAge;
@@ -722,7 +722,7 @@ export default function RetirementPage() {
         )}
 
         {/* Stat Cards — 5 columns with Cash Runway */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
           <StatCard
             label="Cash Runway"
             value={bridge?.cash_runway_months != null ? `${bridge.cash_runway_months}mo` : "—"}
