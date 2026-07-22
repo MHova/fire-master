@@ -279,7 +279,7 @@ export default function FireConfigPage() {
         {/* Personal */}
         <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-5">
           <h3 className="text-sm font-medium text-[var(--text-secondary)] mb-4">Personal</h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             <div>
               <label className={labelCls}>Date of Birth</label>
               <input type="date" value={form.date_of_birth} onChange={(e) => setForm(f => ({ ...f, date_of_birth: e.target.value }))} className={inputCls} />
@@ -298,7 +298,7 @@ export default function FireConfigPage() {
         {/* Core Assumptions */}
         <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-5">
           <h3 className="text-sm font-medium text-[var(--text-secondary)] mb-4">Core Assumptions</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <label className={labelCls}>FIRE Variant</label>
               <select value={form.fire_variant} onChange={(e) => setForm(f => ({ ...f, fire_variant: e.target.value }))} className={inputCls}>
@@ -353,7 +353,7 @@ export default function FireConfigPage() {
         {/* Healthcare */}
         <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-5">
           <h3 className="text-sm font-medium text-[var(--text-secondary)] mb-4">Healthcare</h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             <div>
               <label className={labelCls}>Healthcare Monthly ($)</label>
               <input type="number" value={form.healthcare_monthly_cost} onChange={(e) => setForm(f => ({ ...f, healthcare_monthly_cost: e.target.value }))} placeholder="ACA cost pre-Medicare" className={inputCls} />
@@ -377,7 +377,7 @@ export default function FireConfigPage() {
               View Tax Dashboard &rarr;
             </Link>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             <div>
               <label className={labelCls}>Filing Status</label>
               <select value={form.filing_status} onChange={(e) => setForm(f => ({ ...f, filing_status: e.target.value }))} className={inputCls}>
@@ -419,7 +419,7 @@ export default function FireConfigPage() {
 
           {/* Investment & Savings */}
           <h4 className="text-[11px] uppercase tracking-wider text-[var(--text-secondary)] mb-2 mt-2">Investment &amp; Savings Returns (Real, After Inflation)</h4>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <label className={labelCls}>Surplus Investment % (real)</label>
               <input type="number" step="0.5" value={form.surplus_investment_rate} onChange={(e) => setForm(f => ({ ...f, surplus_investment_rate: e.target.value }))} className={inputCls} />
@@ -441,7 +441,7 @@ export default function FireConfigPage() {
               <p className="text-[10px] text-[var(--text-secondary)] mt-1">Real rate on cash reserve long-term (~0% = savings just tracks inflation)</p>
             </div>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mt-3">
             <div>
               <label className={labelCls}>HYSA Cutover Month</label>
               <input type="number" step="12" value={form.cash_savings_cutover_month} onChange={(e) => setForm(f => ({ ...f, cash_savings_cutover_month: e.target.value }))} className={inputCls} />
@@ -460,7 +460,7 @@ export default function FireConfigPage() {
 
           {/* Primary Property */}
           <h4 className="text-[11px] uppercase tracking-wider text-[var(--text-secondary)] mb-2 mt-5">Primary Property</h4>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <label className={labelCls}>RE Appreciation % (real)</label>
               <input type="number" step="0.5" value={form.re_appreciation_rate} onChange={(e) => setForm(f => ({ ...f, re_appreciation_rate: e.target.value }))} className={inputCls} />
@@ -484,7 +484,7 @@ export default function FireConfigPage() {
 
           {/* Social Security & Spending */}
           <h4 className="text-[11px] uppercase tracking-wider text-[var(--text-secondary)] mb-2 mt-5">Social Security &amp; Spending Phases</h4>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <label className={labelCls}>SS Claim Age</label>
               <input type="number" step="1" value={form.ss_claim_age} onChange={(e) => setForm(f => ({ ...f, ss_claim_age: e.target.value }))} className={inputCls} />
@@ -506,7 +506,7 @@ export default function FireConfigPage() {
               <p className="text-[10px] text-[var(--text-secondary)] mt-1">Spending drops to {form.spending_phase_floor}%</p>
             </div>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mt-3">
             <div>
               <label className={labelCls}>Slow-Go Spending %</label>
               <input type="number" step="5" value={form.spending_phase_slow} onChange={(e) => setForm(f => ({ ...f, spending_phase_slow: e.target.value }))} className={inputCls} />
@@ -547,7 +547,7 @@ export default function FireConfigPage() {
           )}
 
           {/* Add new */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 items-end">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 items-end">
             <div>
               <label className={labelCls}>Name</label>
               <input type="text" value={incomeForm.name} onChange={(e) => setIncomeForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g., Salary" className={inputCls} />
@@ -828,7 +828,7 @@ function ExpenseBreakdown({
     }
 
     return (
-      <div className="bg-[var(--bg-card)] rounded p-3 border border-[var(--border)] col-span-2">
+      <div className="bg-[var(--bg-card)] rounded p-3 border border-[var(--border)] md:col-span-2">
         <h4 className="text-[11px] uppercase tracking-wider text-[var(--text-secondary)] mb-2">Monthly Burn by Phase</h4>
         <div
           className="grid gap-4 text-xs"
@@ -879,7 +879,7 @@ function ExpenseBreakdown({
   const phase2noHC = phase2 - healthcareMo; // post-Medicare
 
   return (
-    <div className="bg-[var(--bg-card)] rounded p-3 border border-[var(--border)] col-span-2">
+    <div className="bg-[var(--bg-card)] rounded p-3 border border-[var(--border)] md:col-span-2">
       <h4 className="text-[11px] uppercase tracking-wider text-[var(--text-secondary)] mb-2">Monthly Expense Breakdown by Phase</h4>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
         {/* Phase: Before property sales */}
