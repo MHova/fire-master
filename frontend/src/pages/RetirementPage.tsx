@@ -15,6 +15,7 @@ import {
 import Layout from "../components/Layout";
 import { formatCurrency as fmt, fmtCompact, fmtAxis } from "../utils/formatting";
 import { useEventMarkers } from "../components/charts/EventMarkers";
+import { useIsMobile } from "../hooks/useIsMobile";
 import type { EventMarkerGroup } from "../components/charts/EventMarkers";
 import { TOOLTIP_STYLE } from "../utils/theme";
 import type { Milestone, SpendingSensitivity, WealthPoolProjection } from "../types/fire";
@@ -562,6 +563,7 @@ function SpendingSensitivityCard({
 }
 
 export default function RetirementPage() {
+  const isMobile = useIsMobile();
   const { data: fireNum, isLoading: loadingNum } = useFireNumber();
   const { data: readiness, isLoading: loadingReady } = useFireReadiness();
   const { data: timeline } = useFireTimeline();
@@ -853,7 +855,7 @@ export default function RetirementPage() {
                 <ResponsiveContainer width="100%" height={400}>
                   <ComposedChart
                     data={wealthChartData}
-                    margin={{ top: 32, right: 60, left: 10, bottom: 0 }}
+                    margin={{ top: 32, right: isMobile ? 8 : 60, left: isMobile ? 0 : 10, bottom: 0 }}
                   >
                     <defs>
                       <linearGradient id="gradIraB" x1="0" y1="0" x2="0" y2="1">
@@ -896,7 +898,7 @@ export default function RetirementPage() {
                       stroke="#5c5c6a"
                       tick={{ fontSize: 11, fill: "#5c5c6a" }}
                       tickFormatter={fmtAxis}
-                      width={65}
+                      width={isMobile ? 48 : 65}
                     />
                     <Tooltip
                       {...TOOLTIP_STYLE}
@@ -943,6 +945,7 @@ export default function RetirementPage() {
                       tickFormatter={fmtAxis}
                       width={55}
                       domain={[0, 200000]}
+                      hide={isMobile}
                     />
                     <Line yAxisId="spending" type="monotone" dataKey="annual_spending" stroke="var(--red)" strokeWidth={1.5} strokeDasharray="6 3" dot={false} strokeOpacity={0.7} />
                   </ComposedChart>
@@ -952,7 +955,7 @@ export default function RetirementPage() {
 
                 {/* Legend + summary row */}
                 <div className="flex items-center justify-between mt-4 pt-4 border-t border-[var(--border)]">
-                  <div className="flex items-center gap-5">
+                  <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
                     {[
                       { label: "Real Estate", color: "var(--yellow)" },
                       { label: "Private Venture", color: "var(--orange, #b06830)" },

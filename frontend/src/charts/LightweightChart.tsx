@@ -51,10 +51,17 @@ export default function LightweightChart({
       rightPriceScale: {
         borderColor: "#2a2a3e",
       },
-      ...(disableScroll && {
-        handleScroll: { mouseWheel: false },
-        handleScale: { mouseWheel: false },
-      }),
+      // Touch drags/pinch pan the chart and hijack page scrolling on mobile —
+      // keep charts read-only under touch; mouse interactions are unaffected.
+      handleScroll: {
+        vertTouchDrag: false,
+        horzTouchDrag: false,
+        ...(disableScroll && { mouseWheel: false }),
+      },
+      handleScale: {
+        pinch: false,
+        ...(disableScroll && { mouseWheel: false }),
+      },
     });
 
     const series = chart.addSeries(AreaSeries, {

@@ -495,7 +495,7 @@ export default function SpendingTrackerPage() {
               Monthly Scorecard
             </h3>
             <div className="space-y-3">
-              {tracker.months.map((m) => {
+              {[...tracker.months].reverse().map((m) => {
                 const label = new Date(m.month + "-01T12:00:00").toLocaleDateString(
                   "en-US",
                   { month: "short", year: "numeric" },
