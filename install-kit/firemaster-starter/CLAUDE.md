@@ -89,9 +89,25 @@ changes with the user before writing.
 
 ### 1. Enrich accounts
 `PATCH /api/accounts/{account_id}/enrichment` — body fields (all optional, send only what changes):
-`notes` (str), `tags` (list[str]), `fire_role` (str — how the account is treated in projections;
-GET an account or the projection to see the roles in use), `target_balance` (cents),
-`target_allocation_pct` (float), `strategy` (str), `custom_data` (object).
+`notes` (str), `tags` (list[str]), `fire_role` (str — see vocabulary below), `target_balance`
+(cents), `target_allocation_pct` (float), `strategy` (str), `custom_data` (object).
+
+**`fire_role` vocabulary** (the exact strings the engine recognizes — it's a free-form field,
+so a typo does NOT error, it silently lands the account in "other"; use these verbatim):
+
+| Bucket | Roles |
+|---|---|
+| Liquid | `cash_reserve`, `operating_account`, `speculative` |
+| Retirement | `retirement_core`, `retirement_bridge`, `retirement_supplemental`, `tax_free_reserve` |
+| Real-estate assets | `primary_residence`, `sell_candidate`, `income_producing` |
+| Real-estate liabilities | `primary_mortgage`, `sell_with_property` (a mortgage on a sell_candidate) |
+| Illiquid | `illiquid_private` (private equity, vested-but-unsellable, etc.) |
+| Excluded | `system` (internal accounts — skipped entirely) |
+
+Typical mapping: checking → `operating_account`; HYSA/emergency → `cash_reserve`; brokerage →
+`speculative`; 401(k)/trad IRA → `retirement_core` (or `retirement_bridge` if it will fund a
+SEPP); Roth → `tax_free_reserve`; home → `primary_residence` + its loan `primary_mortgage`;
+rental → `income_producing`. Credit cards and cars can stay unenriched ("other").
 Get account IDs from `GET /api/accounts`. Enrichment **survives Monarch re-syncs** — it's yours.
 
 ### 2. Scenarios (what-if planning)
