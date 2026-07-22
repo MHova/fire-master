@@ -9,6 +9,9 @@ The user opened this folder (the FIREMaster starter kit) and has the app running
 `docker compose up`. There is **no application source code here** — just this file, the compose
 file, and guides. You work entirely through the HTTP API.
 
+> **On Windows** your shell is PowerShell: send JSON via a hashtable piped to `ConvertTo-Json`
+> with `Invoke-RestMethod` — don't fight inline-JSON quote escaping in `curl` one-liners.
+
 ## Connect (do this first)
 
 1. **Authenticate.** `POST http://localhost:8000/api/auth/login` with JSON
