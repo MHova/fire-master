@@ -57,6 +57,26 @@ The app has three lifecycle states — diagnose with `GET /api/accounts` + `GET 
    to the user, do NOT present those projections as findings, and offer the onboarding below.**
 3. **Onboarded** — roles enriched, config rebuilt. Normal operation.
 
+## How the projection is actually computed (read before reconciling numbers)
+
+`GET /api/fire/wealth-projection` builds separate wealth pools and draws them down in real
+terms. Where each input comes from:
+
+- **From enriched accounts:** pool starting balances (cash, taxable, retirement, real-estate
+  equity) are mapped from accounts **via their `fire_role`**. An account with no `fire_role`
+  contributes NOTHING — the projection does read accounts, but only through enrichment. This is
+  why the half-onboarded state produces nonsense and why enriching roles is the step that moves
+  the headline number.
+- **From the FIRE config only:** the SEPP block, RRSP/pension-style income blocks,
+  `property_sales` entries, spending target, and every rate under
+  `custom_assumptions.projection`. These never come from accounts.
+- **From income sources:** recurring income rows (`/api/income`, if configured).
+- **Deliberately excluded:** transaction history (that drives spending/burn analytics, not the
+  projection) and any account left unenriched.
+
+So the projection total and "sum of my account balances" are NOT supposed to match unless
+enrichment is complete — don't reconcile them for a user without checking state first.
+
 ## Setting up the user's data (the three common tasks)
 
 After a user connects Monarch, accounts/transactions import automatically but **enrichment,
