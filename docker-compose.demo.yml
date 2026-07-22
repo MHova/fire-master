@@ -120,6 +120,9 @@ services:
       # BIND mounts (not named volumes) so `down -v` keeps the TLS certs.
       - ./caddy/data:/data
       - ./caddy/config:/config
+      # JSON access log (see Caddyfile `log` block) — bind mount so the funnel
+      # metrics history survives resets too.
+      - ./caddy/logs:/logs
     depends_on:
       - frontend
       - backend

@@ -11,6 +11,18 @@
 {$DEMO_DOMAIN:demo.firemaster.io} {
 	encode gzip
 
+	# JSON access log for funnel metrics. Written under /logs, which the demo
+	# compose bind-mounts to ./caddy/logs on the host — bind mounts survive the
+	# periodic `down -v` reset, so the log outlives container recreation.
+	log {
+		output file /logs/access.log {
+			roll_size 50MiB
+			roll_keep 10
+			roll_keep_for 8760h
+		}
+		format json
+	}
+
 	# API -> FastAPI backend (routes already live under /api, no rewrite needed)
 	handle /api/* {
 		reverse_proxy backend:8000
