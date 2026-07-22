@@ -28,7 +28,9 @@ file, and guides. You work entirely through the HTTP API.
   income, config dollar amounts. Divide by 100 for dollars; multiply by 100 when writing.
 - **Exception: the Properties API uses dollars as floats** (`value`, `loan_balance`,
   `purchase_price`). Don't multiply those by 100.
-- **Use `displayBalance`, not `currentBalance`** for an account's balance.
+- **An account's balance is `balance_cents`** (with a computed `balance` in dollars) on the
+  accounts API. (`displayBalance` is a Monarch-sync-internal field name — it does not exist in
+  API responses.)
 - **ALL projection outputs are REAL — today's dollars.** That covers every projection surface:
   `/api/fire/wealth-projection`, `/api/fire/lifetime` + `/timeline`, `/api/tax/monte-carlo`
   percentiles, and the `/api/tax/withdrawal-plan` year rows (its tax brackets stay frozen at
