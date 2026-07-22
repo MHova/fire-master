@@ -182,9 +182,9 @@ export default function AccountDetailPage() {
         </div>
 
         {/* Two-column layout */}
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Left column — chart + enrichment */}
-          <div className="col-span-2 space-y-6">
+          <div className="md:col-span-2 space-y-6">
             {/* Balance chart */}
             <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-4">
               <h3 className="text-sm font-medium text-[var(--text-secondary)] mb-4">

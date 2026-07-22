@@ -222,7 +222,7 @@ export default function AssetsPage() {
         </div>
 
         {/* Stat cards */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <StatCard
             label="Net Worth"
             value={formatCompact(hub.total_net_worth)}
@@ -241,12 +241,12 @@ export default function AssetsPage() {
         </div>
 
         {/* Filter tabs */}
-        <div className="flex gap-1 border-b border-[var(--border)] pb-px">
+        <div className="flex gap-1 border-b border-[var(--border)] pb-px overflow-x-auto">
           {FILTER_TABS.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setFilter(tab.key)}
-              className={`px-3 py-2 text-sm transition-colors relative ${
+              className={`px-3 py-2 text-sm transition-colors relative whitespace-nowrap shrink-0 ${
                 filter === tab.key
                   ? "text-[var(--text-primary)]"
                   : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"

@@ -497,7 +497,7 @@ export default function TaxPlanningPage() {
         </div>
 
         {/* Stat Cards */}
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <StatCard
             label="Total Tax"
             value={fmt(brackets.total_tax)}
@@ -525,9 +525,9 @@ export default function TaxPlanningPage() {
         </div>
 
         {/* Two-column: Monte Carlo + Brackets */}
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Monte Carlo Fan Chart */}
-          <div className="col-span-2 bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-4">
+          <div className="md:col-span-2 bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-medium text-[var(--text-secondary)]">
                 Monte Carlo Simulation
@@ -613,7 +613,7 @@ export default function TaxPlanningPage() {
 
                 {/* Percentile summary row */}
                 {monteCarlo && (
-                  <div className="grid grid-cols-5 gap-3 mt-4 pt-4 border-t border-[var(--border)]">
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4 pt-4 border-t border-[var(--border)]">
                     {[
                       { label: "Worst 10%", value: monteCarlo.percentile_10, color: "var(--red)" },
                       { label: "25th %ile", value: monteCarlo.percentile_25, color: "var(--yellow)" },

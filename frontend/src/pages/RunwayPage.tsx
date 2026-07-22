@@ -320,10 +320,10 @@ function EventRow({
 }) {
   return (
     <div
-      className="flex items-center justify-between p-3 rounded border border-[rgba(42,42,62,0.3)] hover:bg-[rgba(255,255,255,0.02)] transition-colors"
+      className="flex flex-wrap items-center justify-between gap-y-1.5 p-3 rounded border border-[rgba(42,42,62,0.3)] hover:bg-[rgba(255,255,255,0.02)] transition-colors"
       style={realized ? { opacity: 0.45, filter: "saturate(0.6)" } : undefined}
     >
-      <div className="flex items-center gap-3 min-w-0">
+      <div className="flex items-center gap-3 min-w-0 basis-full sm:basis-auto">
         <span
           className="inline-block px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-medium"
           style={{
@@ -349,7 +349,7 @@ function EventRow({
           </div>
         </div>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 ml-auto">
         <span
           className="font-mono text-sm font-bold"
           style={{
@@ -420,7 +420,7 @@ function EventsList({
   }, [events]);
 
   return (
-    <div className="col-span-3 bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-4">
+    <div className="md:col-span-3 bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-medium text-[var(--text-secondary)]">
           Cash Flow Events
@@ -693,7 +693,7 @@ export default function RunwayPage() {
         </div>
 
         {/* Hero Stats */}
-        <div className="grid grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <StatCard
             label="Liquid Cash"
             value={formatCurrency(runway.current_cash)}
@@ -733,7 +733,7 @@ export default function RunwayPage() {
           <h3 className="text-xs uppercase tracking-wider text-[var(--text-secondary)] mb-3">
             Baseline Overrides
           </h3>
-          <div className="grid grid-cols-4 gap-4 items-end">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 items-end">
             <div>
               <label className="block text-xs text-[var(--text-secondary)] mb-1">
                 Monthly Income ($)
@@ -899,9 +899,9 @@ export default function RunwayPage() {
         </div>
 
         {/* Two-column: Income/Expense Bars + Events */}
-        <div className="grid grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
           {/* Income vs Expenses (next 6 months) */}
-          <div className="col-span-2 bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-4">
+          <div className="md:col-span-2 bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-4">
             <h3 className="text-sm font-medium text-[var(--text-secondary)] mb-3">
               Income vs Expenses (6 mo)
             </h3>
@@ -949,7 +949,7 @@ export default function RunwayPage() {
           <h3 className="text-sm font-medium text-[var(--text-secondary)] mb-3">
             Monthly Projection
           </h3>
-          <div className="max-h-[400px] overflow-y-auto">
+          <div className="max-h-[400px] overflow-y-auto overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-[var(--border)]">

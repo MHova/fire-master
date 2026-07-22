@@ -143,7 +143,7 @@ export default function SpendingPage() {
         </div>
 
         {/* Summary Hero Cards */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <StatCard
             label="Total Spending"
             value={fmt(analysis.total_spending)}
@@ -163,11 +163,11 @@ export default function SpendingPage() {
 
         {/* Category Breakdown */}
         <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-4">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-y-2 mb-4">
             <h3 className="text-sm font-medium text-[var(--text-secondary)]">
               Spending by Category
             </h3>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               {/* Parent / Individual toggle */}
               <button
                 onClick={() => setGroupByParent(!groupByParent)}

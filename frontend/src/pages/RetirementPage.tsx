@@ -150,7 +150,7 @@ function MilestoneTimeline({ milestones, currentAge }: { milestones: Milestone[]
       </div>
 
       {/* Milestone cards row */}
-      <div className="grid grid-cols-4 gap-3 mt-6 pt-3 border-t border-[var(--border)]">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6 pt-3 border-t border-[var(--border)]">
         {milestones.map((m) => {
           const color = MILESTONE_COLORS[m.status] ?? "var(--blue)";
           const yearsAway = m.age - currentAge;
@@ -513,7 +513,7 @@ function SpendingSensitivityCard({
           <div className="text-[11px] uppercase tracking-wider text-[var(--text-secondary)] mb-3">
             Impact on Wealth at 82
           </div>
-          <div className="grid grid-cols-5 gap-1.5">
+          <div className="grid grid-cols-3 md:grid-cols-5 gap-1.5">
             {sensitivity.points.map((pt, i) => {
               const isCurrent = Math.abs(pt.monthly_spending - currentBase) < 50;
               const isSelected = baseOverride != null && Math.abs(pt.monthly_spending - baseOverride) < 50;
@@ -720,7 +720,7 @@ export default function RetirementPage() {
         )}
 
         {/* Stat Cards — 5 columns with Cash Runway */}
-        <div className="grid grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <StatCard
             label="Cash Runway"
             value={bridge?.cash_runway_months != null ? `${bridge.cash_runway_months}mo` : "—"}
@@ -995,7 +995,7 @@ export default function RetirementPage() {
         )}
 
         {/* Bridge Status — Two Column */}
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Monthly Cash Flow */}
           <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-4">
             <h3 className="text-sm font-medium text-[var(--text-secondary)] mb-3">Monthly Cash Flow</h3>

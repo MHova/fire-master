@@ -265,9 +265,9 @@ export default function DashboardPage() {
         </div>
 
         {/* Bottom row: Accounts + Allocation */}
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Account List */}
-          <div className="col-span-2 bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-4">
+          <div className="md:col-span-2 bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-4">
             <h3 className="text-sm font-medium text-[var(--text-secondary)] mb-3">
               Accounts ({summary.account_count})
             </h3>
