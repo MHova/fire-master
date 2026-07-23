@@ -32,7 +32,10 @@ export async function fetchJSON<T>(
     },
   });
 
-  if (res.status === 401) {
+  // 401 on a normal API call = expired/invalid session -> back to login.
+  // A 401 from the login endpoint itself is just "wrong credentials" — redirecting
+  // there reloads the page, loses the error, and (with demo auto-login) loops forever.
+  if (res.status === 401 && !url.includes("/auth/login")) {
     localStorage.removeItem("token");
     window.location.href = "/login";
     throw new Error("Unauthorized");
