@@ -74,4 +74,5 @@ app.include_router(transactions_router)
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "version": "0.1.0"}
+    settings = get_settings()
+    return {"status": "ok", "version": "0.1.0", "demo_mode": settings.DEMO_MODE}

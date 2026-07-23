@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { useLogin } from "../api/queries";
 import { useAuth } from "../hooks/useAuth";
 
@@ -6,8 +6,19 @@ export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [demoMode, setDemoMode] = useState(false);
   const loginMutation = useLogin();
   const { login } = useAuth();
+
+  useEffect(() => {
+    fetch("/api/health").then(r => r.json()).then(data => {
+      if (data.demo_mode) {
+        setDemoMode(true);
+        setUsername("admin");
+        setPassword("YouGotThis2026");
+      }
+    }).catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -64,6 +75,11 @@ export default function LoginPage() {
         >
           {loginMutation.isPending ? "Signing in..." : "Sign In"}
         </button>
+        {demoMode && (
+          <p className="mt-4 text-center text-xs text-[var(--text-muted)]">
+            Demo credentials pre-filled — just click Sign In
+          </p>
+        )}
       </form>
     </div>
   );
