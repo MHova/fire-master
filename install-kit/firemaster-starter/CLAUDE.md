@@ -59,6 +59,21 @@ The app has three lifecycle states — diagnose with `GET /api/accounts` + `GET 
 
 ## How the projection is actually computed (read before reconciling numbers)
 
+**Which page runs on which data** — the app has two brains: synced accounts (fresh every
+sync) and the FIRE config (frozen at last edit). When a user asks "why do these pages
+disagree," start here:
+
+| Surface | Inputs | Freshness |
+|---|---|---|
+| Runway page | Liquid cash + trailing 3-mo actual income/burn from transactions | Fully live |
+| Retirement top strip (projected date) | Total synced net worth, one pot | Live |
+| Retirement pool charts + ALL scenarios | Cash/RE live from enriched accounts; **IRAs/RRSP/taxable from config only** | As current as the last config edit |
+| Dashboard / FIRE progress | Synced accounts | Live |
+
+So the scenario comparisons — the numbers users trust most — run on config-side retirement
+balances. A useful standing check: diff the user's live IRA balances against
+`custom_assumptions.sepp` and flag drift before any real decision.
+
 `GET /api/fire/wealth-projection` builds separate wealth pools and draws them down in real
 terms. Where each input comes from:
 

@@ -227,6 +227,30 @@ The taxable pool is the 6th pool in the funding waterfall and is drawn **before*
 
 **Month-0 hygiene** (related fix): one-off cashflow events dated before today are dropped rather than clamped to month 0 — otherwise a finished severance or paid expense reappears as a phantom month-0 flow. Recurring events start from today. (Known limitation: the day-based bucketing rounds events <~30 days out to month 0.)
 
+## Which Surface Runs on Which Engine (and how fresh it is)
+
+The app has two brains: **synced account data** (fresh every sync) and the **FIRE config**
+(frozen at last edit). Every page draws from one or both — knowing which is the difference
+between deciding on today's money and April's (verified Jul 23, 2026):
+
+| Surface | Engine | Inputs | Freshness |
+|---|---|---|---|
+| **Runway page** | `CashflowEngine.project_runway()` | Liquid cash + trailing 3-mo actual income/burn from transactions | Fully live — no config balances |
+| **Retirement page, top strip** (projected date, on-track) | `project_timeline()` (single-pool) | Total synced net worth, one pot | Live balances |
+| **Retirement page, pool charts + ALL scenarios** | `project_wealth_pools()` — the trusted engine | Cash/RE/illiquid live from enriched accounts; **IRA-A/IRA-B, RRSP, taxable pool from config only** | The stale-config zone |
+| **Dashboard / FIRE progress** | summary calcs | Synced accounts | Live |
+
+Two non-obvious consequences (both empirically verified):
+- **Retirement-role account balances are IGNORED by `project_wealth_pools()`** — the SEPP
+  config block is the only door retirement money enters through (identical totals with $0 vs
+  $870K of enriched retirement accounts). They drive only the FIRE-progress "accessible"
+  number. Corollary: the real double-count vectors are a liquid-role brokerage also counted in
+  `taxable_pool.starting_balance`, or liquid-role pension money also in the RRSP block —
+  retirement roles themselves cannot double-count.
+- **Maintenance habit:** after a big market move or before a real decision, diff live IRA
+  balances against the config's SEPP block — the scenario comparisons run on the config side.
+  (Auto-syncing config pools from enriched balances is a candidate future engine item.)
+
 ## Known Inconsistency: Dual Cash Runway Calculations
 
 Two modules compute cash runway with different assumptions — they will give different answers:
