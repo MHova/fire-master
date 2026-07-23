@@ -246,6 +246,7 @@ class WealthPoolProjection(BaseModel):
     total_at_end: float
     sepp_monthly: float  # SEPP payment amount
     sepp_depletes_age: float | None  # age when IRA-A hits zero
+    demo_persona: bool = False  # config still carries the seeded persona — data is synthetic
 
 
 class SpendingSensitivityPoint(BaseModel):

@@ -42,7 +42,17 @@ file, and guides. You work entirely through the HTTP API.
 
 ## Know which state you're in (check BEFORE trusting any projection)
 
-The app has three lifecycle states — diagnose with `GET /api/accounts` + `GET /api/fire/config`:
+**First call, always: `GET /api/setup/status`.** One read-only call that returns the lifecycle
+state (`empty | demo | half_onboarded | onboarded`), what's configured (accounts, fire_roles,
+config, SEPP, properties, scenarios, income sources), the complete `fire_role` vocabulary,
+any unrecognized role values (typo detector), and `next_steps` — ordered; do them top to
+bottom. Trust its `next_steps` over re-deriving state by hand. Projection responses also carry
+a top-level `demo_persona` flag so seeded data announces itself. (If the endpoint 404s, the
+backend image predates Jul 23 2026 — `docker compose pull && docker compose up -d`, or fall
+back to the manual diagnosis below.)
+
+Background for interpreting the status call — the three lifecycle states (manual diagnosis:
+`GET /api/accounts` + `GET /api/fire/config`):
 
 1. **Demo** — seeded persona, `custom_assumptions.demo_persona: true`. Everything is coherent
    fake data; analyze freely, say it's the demo.

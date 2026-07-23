@@ -827,6 +827,7 @@ class FireProjectionsEngine:
             return WealthPoolProjection(
                 points=[], events=[], cash_zero_month=None,
                 total_at_end=0, sepp_monthly=0, sepp_depletes_age=None,
+                demo_persona=bool((config.custom_assumptions or {}).get("demo_persona")),
             )
 
         breakdown = await self._compute_net_worth_breakdown()
@@ -1485,6 +1486,7 @@ class FireProjectionsEngine:
             total_at_end=round(cash + max(0, ira_a) + max(0, ira_b) + max(0, rrsp_remaining) + max(0, re_equity) + max(0, illiquid) + max(0, taxable), 0),
             sepp_monthly=sepp_monthly,
             sepp_depletes_age=round(sepp_depletes_age, 1) if sepp_depletes_age else None,
+            demo_persona=bool((config.custom_assumptions or {}).get("demo_persona")),
         )
 
     async def project_wealth_pools_for_scenario(

@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.accounts import router as accounts_router
 from app.api.advisor import router as advisor_router
 from app.api.auth import router as auth_router
+from app.api.setup import router as setup_router
 from app.api.cashflow import router as cashflow_router
 from app.api.categories import router as categories_router
 from app.api.dashboard import router as dashboard_router
@@ -66,6 +67,7 @@ app.include_router(dashboard_router)
 app.include_router(fire_router)
 app.include_router(net_worth_router)
 app.include_router(properties_router)
+app.include_router(setup_router)
 app.include_router(spending_router)
 app.include_router(sync_router)
 app.include_router(tax_router)
