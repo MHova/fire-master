@@ -76,7 +76,7 @@ export default function LoginPage() {
           {loginMutation.isPending ? "Signing in..." : "Sign In"}
         </button>
         {demoMode && (
-          <p className="mt-4 text-center text-xs text-[var(--text-muted)]">
+          <p className="mt-4 text-center text-xs text-[var(--text-tertiary)]">
             Demo credentials pre-filled — just click Sign In
           </p>
         )}
