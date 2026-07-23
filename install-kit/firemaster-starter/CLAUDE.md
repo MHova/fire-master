@@ -62,14 +62,20 @@ The app has three lifecycle states — diagnose with `GET /api/accounts` + `GET 
 `GET /api/fire/wealth-projection` builds separate wealth pools and draws them down in real
 terms. Where each input comes from:
 
-- **From enriched accounts:** pool starting balances (cash, taxable, retirement, real-estate
-  equity) are mapped from accounts **via their `fire_role`**. An account with no `fire_role`
+- **From enriched accounts (via `fire_role`):** the CASH pool (liquid roles), REAL-ESTATE
+  equity (RE roles), and the ILLIQUID pool (`illiquid_private`). An account with no `fire_role`
   contributes NOTHING — the projection does read accounts, but only through enrichment. This is
-  why the half-onboarded state produces nonsense and why enriching roles is the step that moves
-  the headline number.
-- **From the FIRE config only:** the SEPP block, RRSP/pension-style income blocks,
-  `property_sales` entries, spending target, and every rate under
-  `custom_assumptions.projection`. These never come from accounts.
+  why the half-onboarded state produces nonsense.
+- **From the FIRE config only:** the RETIREMENT pools (IRA-A/IRA-B come from the SEPP block —
+  verified Jul 23: account balances under retirement roles are IGNORED by the pool projection,
+  even though they do drive the FIRE-progress "accessible" number), the TAXABLE pool
+  (`taxable_pool.starting_balance`), RRSP/pension-style income blocks, `property_sales`
+  entries, spending target, and every rate under `custom_assumptions.projection`.
+  Two corollaries that trip agents: (1) enriching a user's IRAs with retirement roles does NOT
+  put that money in the projection — the SEPP config block is the only door in; (2) the real
+  double-count vectors are a brokerage enriched under a LIQUID role that's also counted in
+  `taxable_pool.starting_balance`, or pension money under a liquid role that's also in the
+  RRSP block. Retirement roles themselves cannot double-count.
 - **From income sources:** recurring income rows (`/api/income`, if configured).
 - **Deliberately excluded:** transaction history (that drives spending/burn analytics, not the
   projection) and any account left unenriched.
@@ -83,6 +89,13 @@ run ALONGSIDE newly enriched real accounts, which can inflate the projection wit
 don't exist. When onboarding, rebuild those config blocks with the user's real numbers (or
 remove them) as part of going live — and if in doubt, enrich a small tranche of accounts first
 and verify the projection delta matches the balances added before writing the rest.
+
+**"Taxable shows $0 all run despite `proceeds_to: "taxable"` sales" is usually correct, not a
+bug:** when cash is negative, a repair draw moves money from the taxable pool to cash every
+month — so if the accumulated deficit exceeds the sale proceeds, the entire sale passes through
+the pool in its arrival month and the balance never displays above zero. The evidence is in
+`taxable_draw` (you'll see the proceeds-sized spike at the sale month) and in cash jumping up.
+A taxable balance only accumulates once proceeds exceed what negative cash immediately claims.
 
 ## Setting up the user's data (the three common tasks)
 
