@@ -1418,8 +1418,12 @@ class FireProjectionsEngine:
             re_secondary *= (1 + re_monthly_appr)
             re_equity = re_income_prop + re_primary + re_secondary
 
-            # Record points: monthly for bridge period, yearly after
-            if m < bridge_months or m % 12 == 0 or m == total_months - 1:
+            # Record points: monthly for bridge period, yearly after. No terminal
+            # extra point (unless the run is shorter than a year): the chart's
+            # categorical axis gives every point a full-width slot, so a point 1
+            # month after the last yearly one renders as a duplicate-age flat
+            # segment at the right edge.
+            if m < bridge_months or m % 12 == 0 or (m == total_months - 1 and total_months < 12):
                 re_val = round(max(0, re_equity), 0)
                 ill_val = round(max(0, illiquid), 0)
                 rrsp_val = round(max(0, rrsp_remaining), 0)
