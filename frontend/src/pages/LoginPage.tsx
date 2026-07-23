@@ -77,7 +77,7 @@ export default function LoginPage() {
         </button>
         {demoMode && (
           <p className="mt-4 text-center text-xs text-[var(--text-tertiary)]">
-            Demo credentials pre-filled — just click Sign In
+            Demo — just click Sign In
           </p>
         )}
       </form>
