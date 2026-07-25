@@ -14,11 +14,26 @@ const NAV_ITEMS = [
   { label: "Tax Planning", path: "/tax", active: true },
 ];
 
-function Wordmark() {
-  return (
-    <h1 className="flex items-center gap-2" style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: "20px", fontWeight: 400, letterSpacing: "-0.3px" }}>
+// In the hosted demo the logo links home to firemaster.io (the story; the header
+// CTA owns the acquisition path to #early-access). For real installs it stays inert.
+const DEMO_HOME_URL = "https://firemaster.io/?utm_source=demo";
+
+function Wordmark({ href }: { href?: string }) {
+  const inner = (
+    <>
       <img src="/favicon.svg" alt="" className="w-6 h-6 rounded" />
       <span><span className="text-[var(--bg-primary)]">FIRE</span><span className="text-[var(--green)]">Master</span></span>
+    </>
+  );
+  return (
+    <h1 style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: "20px", fontWeight: 400, letterSpacing: "-0.3px" }}>
+      {href ? (
+        <a href={href} target="_blank" rel="noopener" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
+          {inner}
+        </a>
+      ) : (
+        <span className="flex items-center gap-2">{inner}</span>
+      )}
     </h1>
   );
 }
@@ -84,7 +99,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       {/* Sidebar — static on desktop */}
       <nav className="hidden md:flex w-56 shrink-0 border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] flex-col">
         <div className="px-5 py-5 border-b border-[var(--sidebar-border)]">
-          <Wordmark />
+          <Wordmark href={syncStatus?.demo_mode ? DEMO_HOME_URL : undefined} />
         </div>
         <SidebarNav currentPath={currentPath} onLogout={logout} />
       </nav>
@@ -99,7 +114,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           />
           <nav className="absolute inset-y-0 left-0 w-44 bg-[var(--sidebar-bg)] border-r border-[var(--sidebar-border)] flex flex-col">
             <div className="pl-4 pr-2 py-5 border-b border-[var(--sidebar-border)] flex items-center justify-between">
-              <Wordmark />
+              <Wordmark href={syncStatus?.demo_mode ? DEMO_HOME_URL : undefined} />
               <button
                 onClick={() => setMenuOpen(false)}
                 aria-label="Close menu"
@@ -128,14 +143,21 @@ export default function Layout({ children }: { children: ReactNode }) {
               <path d="M3 6h18M3 12h18M3 18h18" />
             </svg>
           </button>
-          <span className="md:hidden text-sm font-semibold tracking-tight">
-            <span className="text-[var(--text-primary)]">FIRE</span><span className="text-[var(--green)]">Master</span>
-          </span>
+          {syncStatus?.demo_mode ? (
+            <a href={DEMO_HOME_URL} target="_blank" rel="noopener" className="md:hidden text-sm font-semibold tracking-tight">
+              <span className="text-[var(--text-primary)]">FIRE</span><span className="text-[var(--green)]">Master</span>
+            </a>
+          ) : (
+            <span className="md:hidden text-sm font-semibold tracking-tight">
+              <span className="text-[var(--text-primary)]">FIRE</span><span className="text-[var(--green)]">Master</span>
+            </span>
+          )}
           <div className="flex-1" />
           {syncStatus?.demo_mode ? (
             <div className="flex items-center gap-2">
-              <span className="hidden sm:inline text-xs px-2 py-0.5 rounded border border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--yellow)]">
-                Demo mode
+              <span className="text-xs px-2 py-0.5 rounded border border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--yellow)] whitespace-nowrap">
+                <span className="hidden sm:inline">Demo mode</span>
+                <span className="sm:hidden">Demo</span>
               </span>
               {/* The demo's only exit path home — without it the demo is a dead end
                   (every mention of firemaster.io was hover-only before this) */}
