@@ -133,9 +133,21 @@ export default function Layout({ children }: { children: ReactNode }) {
           </span>
           <div className="flex-1" />
           {syncStatus?.demo_mode ? (
-            <span className="text-xs px-2 py-0.5 rounded border border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--yellow)]">
-              Demo mode
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="hidden sm:inline text-xs px-2 py-0.5 rounded border border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--yellow)]">
+                Demo mode
+              </span>
+              {/* The demo's only exit path home — without it the demo is a dead end
+                  (every mention of firemaster.io was hover-only before this) */}
+              <a
+                href="https://firemaster.io/?utm_source=demo#early-access"
+                target="_blank"
+                rel="noopener"
+                className="text-xs px-2.5 py-1 rounded bg-[var(--green)] text-[var(--bg-primary)] font-medium hover:opacity-90 transition-opacity whitespace-nowrap"
+              >
+                Get FIREMaster &mdash; free
+              </a>
+            </div>
           ) : syncStatus ? (
             <span className="text-xs text-[var(--text-secondary)]">
               Sync: {syncStatus.status}
