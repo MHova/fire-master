@@ -88,14 +88,34 @@ The web app *shows* you your finances. **Claude Code** — an AI agent in your e
 questions* and *sets things up for you*, working directly against FIREMaster's API on your machine.
 This is the feature the whole app exists to serve.
 
-**Setup (about a minute):**
-1. Install [Claude Code](https://docs.claude.com/en/docs/claude-code) and
-   [VS Code](https://code.visualstudio.com/) + its **Claude Code extension** (Pro or Max plan).
+**Setup — pick ONE of these two ways** (about a minute; both need a
+[claude.ai](https://claude.ai/) Pro or Max plan):
+
+**Option A — VS Code** *(recommended if you like a visual editor)*
+1. Install [VS Code](https://code.visualstudio.com/) and its **Claude Code extension** from the
+   marketplace.
 2. **Open this `firemaster-starter` folder in VS Code.** It ships a `CLAUDE.md` that teaches the
    agent your API automatically — endpoints, auth, the data gotchas. No setup beyond opening it.
-3. Open the Claude panel and start with:
-   > *Authenticate to the FIREMaster API (ask me for the admin password), then pull my wealth
-   > projection and orient yourself.*
+3. Open the Claude panel (Claude icon in the sidebar). You get chat alongside clickable files
+   and rendered reports.
+4. **Worth 30 seconds:** set markdown files to open in preview by default — Claude's reports
+   read far better rendered. `Cmd/Ctrl+,` → search "editor associations" → add `*.md` →
+   `vscode.markdown.preview.editor`, or drop this into `settings.json`:
+   ```json
+   "workbench.editorAssociations": { "*.md": "vscode.markdown.preview.editor" }
+   ```
+
+**Option B — plain terminal** *(no VS Code needed)*
+1. Install the [Claude Code CLI](https://docs.claude.com/en/docs/claude-code).
+2. Open a terminal **in this folder** and run `claude`. Same agent, same `CLAUDE.md` context —
+   you just read its reports in whatever editor you like.
+
+**First message, either way:**
+   > *Authenticate to the FIREMaster API (ask me for the admin password — don't save it
+   > anywhere), then pull my wealth projection and orient yourself.*
+
+(The API it talks to is localhost-only and password-gated; the interactive API explorer at
+`http://localhost:8000/docs` is the same surface Claude discovers.)
 
 **Things to ask it** (it reads `CLAUDE.md` and does the API work for you):
 
@@ -113,6 +133,19 @@ This is the feature the whole app exists to serve.
 
 - **Get a report** anytime:
   > *Write me a one-page markdown report on my retirement runway and the three biggest risks.*
+
+- **Stress-test the plan** — the question a dashboard can't answer:
+  > *Pull the wealth projection. Which month does cash bottom out, what's driving it, and
+  > what's the cheapest fix — a spending cut, an earlier property sale, or starting withdrawals
+  > sooner? Quantify each option.*
+
+**Three ground rules that work well:**
+- Let Claude **read freely, but have it show you any change** (POST/PATCH payload) before
+  sending — it asks permission by default.
+- Ask for **reports as markdown files** in a `reports/` folder — they accumulate into a
+  personal financial-review archive instead of scrolling away in chat.
+- **Never paste secrets.** Claude only needs the admin password at login; your Monarch
+  credentials never enter the conversation.
 
 Everything stays local — Claude talks to `localhost:8000`, your data never leaves your machine.
 
@@ -140,5 +173,8 @@ In a foreground session, press **`d`** to detach (app keeps running) or **Ctrl+C
   or ask support how to change the port.
 - **The page won't load** — give it a few more seconds on first run while images download, then
   refresh `http://localhost:5173`.
+- **Anything else — ask Claude Code.** If you set it up above, just describe the problem
+  ("the app won't start, here's what the terminal says") — it can read the logs, diagnose,
+  and walk you through the fix. This beats any FAQ we could write.
 
 Questions? Reply to your welcome email and we'll help.
