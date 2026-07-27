@@ -27,18 +27,37 @@ class CashflowEngine:
         self.db = db
 
     async def get_current_cash(self) -> float:
-        """Sum of checking + savings account balances (liquid cash)."""
+        """Liquid cash for the runway projection.
+
+        fire_role-based, using the SAME definition as the pool engine's liquid
+        bucket (cash_reserve + operating_account — speculative is deliberately
+        not cash), so Runway and the Retirement bridge open on the same number.
+        Falls back to account_type checking+savings when NO liquid roles are
+        enriched yet — a virgin kit install must not read $0.
+        """
+        from app.engines.fire_projections import LIQUID_ROLES
         from app.models.enums import AccountType
 
         result = await self.db.execute(
-            select(func.sum(Account.current_balance)).where(
-                Account.include_in_net_worth == True,
-                Account.is_asset == True,
-                Account.account_type.in_([AccountType.CHECKING, AccountType.SAVINGS]),
-            )
+            select(Account).where(Account.include_in_net_worth == True)
         )
-        total_cents = result.scalar() or 0
-        return _cents_to_dollars(int(total_cents))
+        accounts = list(result.scalars().all())
+
+        role_cents = 0
+        has_liquid_role = False
+        for a in accounts:
+            role = (a.fire_role or "").lower().strip()
+            if role in LIQUID_ROLES:
+                has_liquid_role = True
+                role_cents += a.current_balance if a.is_asset else -a.current_balance
+        if has_liquid_role:
+            return _cents_to_dollars(int(role_cents))
+
+        total = sum(
+            a.current_balance for a in accounts
+            if a.is_asset and a.account_type in (AccountType.CHECKING, AccountType.SAVINGS)
+        )
+        return _cents_to_dollars(int(total))
 
     async def get_trailing_monthly_burn(self, months: int = 3) -> float:
         """Average monthly spending over the last N months from transaction data."""

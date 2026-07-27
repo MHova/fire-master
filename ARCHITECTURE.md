@@ -277,9 +277,11 @@ continuous flow (defensible estimator); income arrives in lumps from discrete da
 rather than reassuring — the correct direction for a financial tool.
 `CashflowEngine.modeled_income_for_month` intentionally duplicates
 `FireProjectionsEngine._income_at_month` (agreement pinned by test) until a shared helper is
-extracted. The remaining cash-basis gap (`get_current_cash` keys off `account_type`,
-`breakdown.liquid` off `fire_role` — today the delta is exactly the `speculative` role) is a
-separate, still-open item.
+extracted. The cash-basis gap was closed in the Jul 27 coherence pass: `get_current_cash` now
+uses the same fire_role liquid definition as `breakdown.liquid` (with an account_type fallback
+for un-enriched installs), `speculative` became inert (net worth yes, cash/bridge fuel no),
+and cashflow events bucket by CALENDAR month in both engines (was `int(days/30.44)`, which
+pulled near-term events into the wrong month). Both pages now open on the same cash number.
 
 ## What This Means Going Forward
 

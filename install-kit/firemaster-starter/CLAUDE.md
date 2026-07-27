@@ -149,21 +149,27 @@ so a typo does NOT error, it silently lands the account in "other"; use these ve
 
 | Bucket | Roles |
 |---|---|
-| Liquid | `cash_reserve`, `operating_account`, `speculative` |
+| Liquid | `cash_reserve`, `operating_account` |
+| Speculative | `speculative` (crypto, concentrated bets — counts in net worth, NOT cash) |
 | Retirement | `retirement_core`, `retirement_bridge`, `retirement_supplemental`, `tax_free_reserve` |
 | Real-estate assets | `primary_residence`, `sell_candidate`, `income_producing` |
 | Real-estate liabilities | `primary_mortgage`, `sell_with_property` (a mortgage on a sell_candidate) |
 | Illiquid | `illiquid_private` (private equity, vested-but-unsellable, etc.) |
 | Excluded | `system` (internal accounts — skipped entirely) |
 
-Typical mapping: checking → `operating_account`; HYSA/emergency → `cash_reserve`; brokerage →
-`speculative`; 401(k)/trad IRA → `retirement_core` (or `retirement_bridge` if it will fund a
-SEPP); Roth → `tax_free_reserve`; home → `primary_residence` + its loan `primary_mortgage`;
-rental → `income_producing`. Credit cards and cars can stay unenriched ("other").
+Typical mapping: checking → `operating_account`; HYSA/emergency → `cash_reserve`; crypto →
+`speculative`; **taxable brokerage → `speculative` role + declare its balance in
+`custom_assumptions.taxable_pool.starting_balance`** (the role gives net-worth visibility and
+is inert, the config makes it drawable — no double-count, since speculative isn't cash);
+401(k)/trad IRA → `retirement_core` (or `retirement_bridge` if it will fund a SEPP); Roth →
+`tax_free_reserve`; home → `primary_residence` + its loan `primary_mortgage`; rental →
+`income_producing`. Credit cards and cars can stay unenriched ("other").
 
 Two treatment facts to state honestly when reporting:
-- **`speculative` is modeled as liquid CASH** (joins the cash pool, earns the configured cash
-  yield) — no volatility or market-growth treatment, despite the name. Conservative by design.
+- **`speculative` is inert** (changed Jul 27, 2026 — it used to join the cash pool): it counts
+  in net worth but is never cash, never bridge fuel, never drawn. Volatile assets aren't
+  survival money. Both the Runway page and the Retirement bridge now open on the same cash
+  number because of this.
 - **`illiquid_private` is inert** — it rides in net-worth totals (including the projection's
   `total_at_end`) but is never drawn, never grows, never funds anything. So enriching illiquid
   accounts raises the headline total WITHOUT making the plan any more survivable —

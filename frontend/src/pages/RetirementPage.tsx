@@ -179,15 +179,25 @@ function MilestoneTimeline({ milestones, currentAge }: { milestones: Milestone[]
   );
 }
 
-function BridgeChart({ points }: { points: WealthPoolProjection["points"]; events: WealthPoolProjection["events"] }) {
+function BridgeChart({ points, currentCash }: { points: WealthPoolProjection["points"]; events: WealthPoolProjection["events"]; currentCash?: number }) {
   const bridgeData = useMemo(() => {
-    return points
+    // Engine points are END-of-month states. Display month m+1 so x = months
+    // elapsed, and prepend a true t0 ("Now" = today's actual cash) so this chart
+    // opens on the same number as the Runway page.
+    const shifted = points
       .filter((p) => p.month != null && p.month <= 60)
       .map((p) => ({
         ...p,
+        month: (p.month ?? 0) + 1,
         net: p.income + p.ira_draw + p.rrsp_draw + p.cash_interest - p.expenses,
       }));
-  }, [points]);
+    if (shifted.length === 0) return shifted;
+    if (currentCash == null) return shifted;
+    return [
+      { ...shifted[0], month: 0, cash: currentCash, net: 0, income: 0, expenses: 0, event: undefined },
+      ...shifted,
+    ];
+  }, [points, currentCash]);
 
   if (bridgeData.length === 0) return null;
 
@@ -828,7 +838,7 @@ export default function RetirementPage() {
 
         {/* Bridge Chart — 60 Month Detail */}
         {bridgeProjection && bridgeProjection.points.length > 0 && (
-          <BridgeChart points={bridgeProjection.points} events={bridgeProjection.events} />
+          <BridgeChart points={bridgeProjection.points} events={bridgeProjection.events} currentCash={bridge?.cash_balance} />
         )}
 
         {/* Wealth Projection — Full Width */}

@@ -80,7 +80,11 @@ SPENDING_PHASES = [
 SPENDING_FLOOR = 0.75  # Age 80+: 75% of base
 
 # fire_role → net worth category mapping
-LIQUID_ROLES = {"cash_reserve", "operating_account", "speculative"}
+# speculative (crypto etc.) is deliberately NOT liquid (decided Jul 27, 2026):
+# volatile assets aren't bridge fuel. It counts in net worth ("other" bucket via
+# the breakdown's fallthrough) but is inert in projections — same as illiquid.
+LIQUID_ROLES = {"cash_reserve", "operating_account"}
+SPECULATIVE_ROLES = {"speculative"}
 RETIREMENT_ROLES = {"retirement_core", "retirement_bridge", "retirement_supplemental", "tax_free_reserve"}
 RE_ASSET_ROLES = {"primary_residence", "sell_candidate", "income_producing"}
 RE_LIABILITY_ROLES = {"primary_mortgage", "sell_with_property"}
@@ -1076,13 +1080,17 @@ class FireProjectionsEngine:
                 continue
             sign = 1.0 if cf.event_type == "income" else -1.0
             amount = cf.amount_cents / 100.0 * sign * cf.probability
-            raw_offset = int((cf.date - today).days / 30.44)
+            # CALENDAR-month offset (Jul 27, 2026): int(days/30.44) pulled events into
+            # the wrong month (an Aug-12 event 16 days out landed in "July"), inflating
+            # the bridge chart's first point and desyncing from Runway's calendar months.
+            raw_offset = (cf.date.year - today.year) * 12 + (cf.date.month - today.month)
 
             if cf.is_recurring and cf.recurrence == "monthly":
                 start_offset = max(0, raw_offset)  # clamp to today: only remaining occurrences
                 end_offset = total_months
                 if cf.end_date:
-                    end_offset = min(end_offset, max(0, int((cf.end_date - today).days / 30.44)))
+                    cal_end = (cf.end_date.year - today.year) * 12 + (cf.end_date.month - today.month)
+                    end_offset = min(end_offset, max(0, cal_end))
                 if end_offset <= 0:
                     continue  # recurring window is entirely in the past
                 for mo in range(start_offset, end_offset):

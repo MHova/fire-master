@@ -69,6 +69,14 @@ class TestDeclaredRules:
         assert pre - post >= 200_000_00 // 12 - 1
 
 
+def _cash_account(cents):
+    a = MagicMock()
+    a.fire_role = "cash_reserve"
+    a.is_asset = True
+    a.current_balance = cents
+    return a
+
+
 def _mock_db_for_runway(*, cash_cents, trailing_income_cents, sources, events):
     """AsyncMock db serving project_runway's 6 execute() calls in order."""
     def scalar(v):
@@ -79,7 +87,7 @@ def _mock_db_for_runway(*, cash_cents, trailing_income_cents, sources, events):
         m = MagicMock(); m.scalars.return_value.first.return_value = v; return m
     db = AsyncMock()
     db.execute.side_effect = [
-        scalar(cash_cents),              # get_current_cash
+        scalars_all([_cash_account(cash_cents)]),  # get_current_cash (role-based)
         scalar(3 * 5_000_00),            # trailing burn (3-mo sum)
         scalar(trailing_income_cents),   # trailing income (3-mo sum) — THE LUMP
         scalars_all(sources),            # income sources
@@ -120,6 +128,28 @@ class TestLumpImmunityAndEvents:
         r = await CashflowEngine(db).project_runway(months=6)
         assert r.projection[0].income == 29000.0  # source + event, once
         assert all(p.income == 1000.0 for p in r.projection[1:])
+
+    @pytest.mark.asyncio
+    async def test_speculative_not_counted_as_cash(self):
+        """Crypto under the speculative role is inert — not runway cash (Jul 27 decision)."""
+        crypto = MagicMock(); crypto.fire_role = "speculative"; crypto.is_asset = True; crypto.current_balance = 14_000_00
+        db = AsyncMock()
+        m = MagicMock(); m.scalars.return_value.all.return_value = [_cash_account(85_000_00), crypto]
+        db.execute.return_value = m
+        from app.engines.cashflow import CashflowEngine as CE
+        assert await CE(db).get_current_cash() == 85_000.0
+
+    @pytest.mark.asyncio
+    async def test_virgin_install_falls_back_to_account_type(self):
+        """No liquid roles enriched -> type-based fallback, not $0."""
+        from app.models.enums import AccountType
+        chk = MagicMock(); chk.fire_role = None; chk.is_asset = True
+        chk.current_balance = 21_000_00; chk.account_type = AccountType.CHECKING
+        db = AsyncMock()
+        m = MagicMock(); m.scalars.return_value.all.return_value = [chk]
+        db.execute.return_value = m
+        from app.engines.cashflow import CashflowEngine as CE
+        assert await CE(db).get_current_cash() == 21_000.0
 
     @pytest.mark.asyncio
     async def test_no_sources_fails_conservative(self):
