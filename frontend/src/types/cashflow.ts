@@ -47,6 +47,7 @@ export interface RunwayResponse {
   net_monthly: number;
   months_remaining: number | null;
   cash_zero_date: string | null;
+  income_provenance: "override" | "modeled";
   trailing_burn: number;
   trailing_income: number;
   projection: MonthlyProjectionPoint[];

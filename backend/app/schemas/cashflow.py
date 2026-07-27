@@ -73,10 +73,11 @@ class MonthlyProjectionPoint(BaseModel):
 class RunwayResponse(BaseModel):
     current_cash: float
     monthly_burn: float  # active baseline (override or trailing)
-    monthly_income: float  # active baseline (override or trailing)
-    net_monthly: float
-    months_remaining: float | None  # None if positive cash flow
+    monthly_income: float  # CURRENT month's baseline (override, or modeled from income sources — tapers over the projection)
+    net_monthly: float  # current-month income minus burn
+    months_remaining: float | None  # from the projection's cash-zero crossing; None if cash never hits zero in the window
     cash_zero_date: _dt.date | None
+    income_provenance: str = "modeled"  # "override" | "modeled" — where monthly_income came from
     trailing_burn: float  # historical trailing average (for reference)
-    trailing_income: float  # historical trailing average (for reference)
+    trailing_income: float  # observed trailing average — REFERENCE ONLY, never a projection input
     projection: list[MonthlyProjectionPoint]

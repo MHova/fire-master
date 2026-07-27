@@ -75,7 +75,7 @@ disagree," start here:
 
 | Surface | Inputs | Freshness |
 |---|---|---|
-| Runway page | Liquid cash + trailing 3-mo actual income/burn from transactions | Fully live |
+| Runway page | Liquid cash + DECLARED income (income sources with dates + cashflow events — never a trailing average; a one-off receipt must not read as permanent income) + trailing 3-mo actual burn | Live balances + declared income model |
 | Retirement top strip (projected date) | Total synced net worth, one pot | Live |
 | Retirement pool charts + ALL scenarios | Cash/RE live from enriched accounts; **IRAs/RRSP/taxable from config only** | As current as the last config edit |
 | Dashboard / FIRE progress | Synced accounts | Live |
@@ -114,6 +114,13 @@ run ALONGSIDE newly enriched real accounts, which can inflate the projection wit
 don't exist. When onboarding, rebuild those config blocks with the user's real numbers (or
 remove them) as part of going live — and if in doubt, enrich a small tranche of accounts first
 and verify the projection delta matches the balances added before writing the rest.
+
+**"Runway's cash chart and Retirement's bridge chart disagree about a property sale" is the
+same design, two lenses:** the wealth projection computes sales itself — proceeds land in the
+TAXABLE pool, not cash (the matching cashflow event is suppressed via
+`suppress_cashflow_match`), so the bridge CASH line won't show the sale as a cash spike while
+Runway (a pure cash view) shows the declared event as cash. Neither is wrong; one tracks the
+checking account, the other the wealth structure.
 
 **"Taxable shows $0 all run despite `proceeds_to: "taxable"` sales" is usually correct, not a
 bug:** when cash is negative, a repair draw moves money from the taxable pool to cash every

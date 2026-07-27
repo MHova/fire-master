@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.account import Account
 from app.models.cashflow_event import CashflowEvent
 from app.models.category_mapping import CategoryMapping
+from app.models.fire_config import FireConfig
+from app.models.income_source import IncomeSource
 from app.models.transaction import Transaction
 from app.schemas.cashflow import MonthlyProjectionPoint, RunwayResponse
 
@@ -69,6 +71,60 @@ class CashflowEngine:
         )
         total_cents = result.scalar() or 0
         return _cents_to_dollars(int(total_cents)) / months
+
+    @staticmethod
+    def modeled_income_for_month(
+        sources: list[IncomeSource],
+        current_date: date,
+        retirement_date: date | None,
+        years_from_start: float = 0.0,
+        inflation_pct: float = 0.0,
+    ) -> int:
+        """Monthly REAL income (cents) from declared sources at a given date.
+
+        INTENTIONAL DUPLICATE of FireProjectionsEngine._income_at_month — same rules,
+        kept in lockstep by tests/test_runway_income.py::test_engines_agree. Runway
+        projects DECLARED money only (income sources + events); trailing transaction
+        averages are never a projection input — a one-off receipt must not become
+        permanent income (the Jul 27 launch blocker). Extract a shared helper
+        post-launch with the agreement test already in place to prove it inert.
+        """
+        total = 0
+        for src in sources:
+            if src.start_date and current_date < src.start_date:
+                continue
+            if src.end_date and current_date > src.end_date:
+                continue
+            # Salary/bonus end at retirement unless explicit end_date
+            if src.income_type.value in ("salary", "bonus", "side_hustle"):
+                if retirement_date and current_date >= retirement_date and not src.end_date:
+                    continue
+            monthly = src.annual_amount / 12
+            # growth_rate is a NOMINAL raise — deflate to real before compounding
+            if src.growth_rate and years_from_start > 0:
+                real_growth = (1 + src.growth_rate / 100) / (1 + inflation_pct / 100) - 1
+                monthly = monthly * ((1 + real_growth) ** years_from_start)
+            total += int(monthly)
+        return total
+
+    async def _get_income_model_inputs(self) -> tuple[list[IncomeSource], date | None, float]:
+        """Active income sources + retirement date + inflation, for the declared model."""
+        sources = list(
+            (await self.db.execute(select(IncomeSource).where(IncomeSource.is_active == True)))
+            .scalars().all()
+        )
+        config = (await self.db.execute(select(FireConfig))).scalars().first()
+        retirement_date: date | None = None
+        inflation = 0.0
+        if config:
+            if config.target_retirement_date:
+                retirement_date = config.target_retirement_date
+            elif config.target_retirement_age and config.date_of_birth:
+                retirement_date = config.date_of_birth + relativedelta(
+                    years=config.target_retirement_age
+                )
+            inflation = config.expected_inflation_rate or 0.0
+        return sources, retirement_date, inflation
 
     async def get_active_events(self) -> list[CashflowEvent]:
         """All non-cancelled, non-completed events."""
@@ -136,17 +192,25 @@ class CashflowEngine:
     ) -> RunwayResponse:
         """Project monthly cash balance forward.
 
-        If income_override / burn_override are provided, use those as the
-        go-forward monthly baseline instead of trailing averages. Events
-        still layer on top.
+        INCOME projects DECLARED money only: income sources (start/end dates
+        honored, so streams taper) plus cashflow events. The trailing average is
+        computed for display/reference but is never a projection input — a
+        backward-looking mean over lump receipts reads a one-off as permanent
+        income (the Jul 27 launch blocker). No sources modeled → income is 0 +
+        events: fails alarming, not reassuring.
+
+        BURN keeps its trailing fallback deliberately — spending is a continuous
+        flow, so a trailing average is a defensible estimator; income arrives in
+        lumps from discrete dated sources, so it must be modeled.
+
+        Overrides (user-declared flat baselines) win over both when provided.
         """
         current_cash = await self.get_current_cash()
         trailing_burn = await self.get_trailing_monthly_burn(months=3)
         trailing_income = await self.get_trailing_monthly_income(months=3)
 
-        # Use overrides when provided, trailing averages otherwise
         monthly_burn = burn_override if burn_override is not None else trailing_burn
-        monthly_income = income_override if income_override is not None else trailing_income
+        sources, retirement_date, inflation = await self._get_income_model_inputs()
 
         events = await self.get_active_events()
 
@@ -165,9 +229,19 @@ class CashflowEngine:
 
             starting_cash = cash
 
-            # Start with baseline
+            # Start with baseline: declared income for THIS month (tapering), flat burn.
+            # Month 0 checks stream activity at TODAY, not the 1st — otherwise a source
+            # that ended earlier this month (e.g. the persona's salary, ended 3 weeks
+            # ago) counts for a full phantom month.
             month_expenses = monthly_burn
-            month_income = monthly_income
+            if income_override is not None:
+                month_income = income_override
+            else:
+                effective_date = today if i == 0 else month_date
+                month_income = _cents_to_dollars(self.modeled_income_for_month(
+                    sources, effective_date, retirement_date,
+                    years_from_start=i / 12.0, inflation_pct=inflation,
+                ))
 
             # Layer events on top — label only start months (one-offs + recurring starts)
             event_names: list[str] = []
@@ -198,18 +272,28 @@ class CashflowEngine:
                 events=event_names,
             ))
 
-        net_monthly = monthly_income - monthly_burn
+        # Headline figures reflect the CURRENT month's modeled baseline (income
+        # tapers, so there is no single flat "income/mo"); months_remaining comes
+        # from the projection's actual cash-zero crossing, not flat division.
+        income_now = (
+            income_override if income_override is not None
+            else _cents_to_dollars(self.modeled_income_for_month(
+                sources, today, retirement_date, 0.0, inflation
+            ))
+        )
+        net_monthly = income_now - monthly_burn
         months_remaining: float | None = None
-        if net_monthly < 0 and current_cash > 0:
-            months_remaining = round(current_cash / abs(net_monthly), 1)
+        if cash_zero_date is not None:
+            months_remaining = round(max(0.0, (cash_zero_date - today).days / 30.44), 1)
 
         return RunwayResponse(
             current_cash=round(current_cash, 2),
             monthly_burn=round(monthly_burn, 2),
-            monthly_income=round(monthly_income, 2),
+            monthly_income=round(income_now, 2),
             net_monthly=round(net_monthly, 2),
             months_remaining=months_remaining,
             cash_zero_date=cash_zero_date,
+            income_provenance="override" if income_override is not None else "modeled",
             trailing_burn=round(trailing_burn, 2),
             trailing_income=round(trailing_income, 2),
             projection=projection,

@@ -500,9 +500,12 @@ export default function RunwayPage() {
     if (seeded.current || !fireConfig) return;
     const runway = (fireConfig.custom_assumptions?.runway ?? {}) as Record<string, number>;
     const seedIncome = runway.monthly_income;
+    // Seed burn to MATCH the Retirement page's monthly total: spending + healthcare
+    // (the pages disagreed by exactly the healthcare line before).
     const seedBurn = runway.monthly_burn
       ?? (fireConfig.target_annual_spending
         ? Math.round(fireConfig.target_annual_spending / 12 / 100)
+          + Math.round((fireConfig.healthcare_monthly_cost ?? 0) / 100)
         : undefined);
     if (seedIncome != null && seedIncome > 0) {
       setIncomeDraft(String(seedIncome));
@@ -706,7 +709,9 @@ export default function RunwayPage() {
             sub={
               runway.cash_zero_date
                 ? `${Math.round((new Date(runway.cash_zero_date).getTime() - Date.now()) / (30.44 * 24 * 60 * 60 * 1000))} months`
-                : "Positive cash flow"
+                : runway.net_monthly >= 0
+                  ? "Positive cash flow"
+                  : "Holds through 24 mo — planned events cover the gap"
             }
           />
           <StatCard
@@ -718,7 +723,7 @@ export default function RunwayPage() {
             label="Monthly Income"
             value={formatCurrency(runway.monthly_income)}
             color="var(--green)"
-            sub={`Trailing: ${formatCurrency(runway.trailing_income)}`}
+            sub={`${runway.income_provenance === "override" ? "Your override" : "From income sources"} · 90d actual: ${formatCurrency(runway.trailing_income)}/mo`}
           />
           <StatCard
             label="Monthly Burn"
@@ -745,10 +750,12 @@ export default function RunwayPage() {
                 onChange={(e) => setIncomeDraft(e.target.value)}
                 onBlur={commitIncome}
                 onKeyDown={(e) => e.key === "Enter" && commitIncome()}
-                placeholder="Use trailing average"
+                placeholder="From income sources"
               />
-              <span className="text-[10px] text-[var(--text-secondary)] mt-0.5 block">
-                Trailing avg: {formatCurrency(runway.trailing_income)}/mo
+              <span className="text-[10px] text-[var(--text-secondary)] mt-0.5 block whitespace-nowrap">
+                {runway.income_provenance === "override"
+                  ? `Sources: ${formatCurrency(runway.trailing_income)}/mo received 90d`
+                  : `Sources: ${formatCurrency(runway.monthly_income)}/mo`}
               </span>
             </div>
             <div>
@@ -764,8 +771,8 @@ export default function RunwayPage() {
                 onKeyDown={(e) => e.key === "Enter" && commitBurn()}
                 placeholder="Use trailing average"
               />
-              <span className="text-[10px] text-[var(--text-secondary)] mt-0.5 block">
-                Trailing avg: {formatCurrency(runway.trailing_burn)}/mo
+              <span className="text-[10px] text-[var(--text-secondary)] mt-0.5 block whitespace-nowrap">
+                Trailing: {formatCurrency(runway.trailing_burn)}/mo
               </span>
             </div>
             <div>
@@ -778,8 +785,10 @@ export default function RunwayPage() {
                   setBurnDraft("");
                 }}
               >
-                Reset to Trailing
+                Clear Overrides
               </button>
+              {/* invisible spacer matching the inputs' hint line so items-end aligns the button with the input row */}
+              <span className="text-[10px] mt-0.5 block invisible" aria-hidden="true">.</span>
             </div>
           </div>
         </div>

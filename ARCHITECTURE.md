@@ -235,7 +235,7 @@ between deciding on today's money and April's (verified Jul 23, 2026):
 
 | Surface | Engine | Inputs | Freshness |
 |---|---|---|---|
-| **Runway page** | `CashflowEngine.project_runway()` | Liquid cash + trailing 3-mo actual income/burn from transactions | Fully live — no config balances |
+| **Runway page** | `CashflowEngine.project_runway()` | Liquid cash + DECLARED income (sources with dates + events; fixed Jul 27) + trailing 3-mo actual burn | Live balances + declared income model |
 | **Retirement page, top strip** (projected date, on-track) | `project_timeline()` (single-pool) | Total synced net worth, one pot | Live balances |
 | **Retirement page, pool charts + ALL scenarios** | `project_wealth_pools()` — the trusted engine | Cash/RE/illiquid live from enriched accounts; **IRA-A/IRA-B, RRSP, taxable pool from config only** | The stale-config zone |
 | **Dashboard / FIRE progress** | summary calcs | Synced accounts | Live |
@@ -253,17 +253,33 @@ Two non-obvious consequences (both empirically verified):
 
 ## Known Inconsistency: Dual Cash Runway Calculations
 
-Two modules compute cash runway with different assumptions — they will give different answers:
+Two modules compute cash runway with different assumptions — they can give different answers:
 
 | | Retirement Page (`bridge-status`) | Runway Module (`cashflow/runway`) |
 |---|---|---|
 | **Engine** | `FireProjectionsEngine.compute_bridge_status()` | `CashflowEngine.project_runway()` |
-| **Income** | Ongoing sources only (excludes temporary) | User overrides or trailing 3-month average (all income) |
+| **Income** | Ongoing sources only (excludes temporary) | **Declared only: income sources (dates honored, streams taper) + events; user override wins** |
 | **IRA/SEPP** | Only if start month reached | Not modeled |
 | **Burn rate** | Trailing 12-month actuals or config override | User override or trailing 3-month average |
 | **Stance** | Conservative (worst-case bridge stress) | Scenario-based (user-controlled assumptions) |
 
-This is intentional for now — Retirement page is the conservative "am I okay?" gauge, Runway module is the interactive "what if?" tool. Future work: consider unifying or at least surfacing the assumption difference in the UI so the numbers don't confuse at a glance.
+The differing *stance* is a design choice — Retirement is the conservative "am I okay?" gauge,
+Runway the interactive "what if?" tool — and stays. What was NOT a design choice and was fixed
+Jul 27, 2026: Runway used to project a trailing 3-month income mean flat across all 24 forward
+months, which read one-off receipts as permanent income and ignored `end_date` tapers (a single
+$29K lump became $9.9K/mo forever; a robust-statistics fix was tested and rejected — no trailing
+window survives a regime change like a layoff). **Principle now: the Runway projection
+extrapolates nothing. Every future dollar comes from something the user declared, with dates.**
+The trailing income average is still computed and displayed — as an *observed* reference figure,
+never a projection input. Burn deliberately keeps its trailing fallback: spending is a
+continuous flow (defensible estimator); income arrives in lumps from discrete dated sources
+(must be modeled). No sources modeled → income projects as 0 + events, which fails alarming
+rather than reassuring — the correct direction for a financial tool.
+`CashflowEngine.modeled_income_for_month` intentionally duplicates
+`FireProjectionsEngine._income_at_month` (agreement pinned by test) until a shared helper is
+extracted. The remaining cash-basis gap (`get_current_cash` keys off `account_type`,
+`breakdown.liquid` off `fire_role` — today the delta is exactly the `speculative` role) is a
+separate, still-open item.
 
 ## What This Means Going Forward
 
