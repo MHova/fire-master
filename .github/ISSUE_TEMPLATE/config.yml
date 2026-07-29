@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security issue (private)
+    url: https://github.com/gdb-mtx/fire-master/security/advisories/new
+    about: Vulnerabilities go through private reporting, never public issues. See SECURITY.md.
+  - name: Everything else
+    url: https://firemaster.io
+    about: Setup help, the install kit, and the newsletter live here. Feature requests — read CONTRIBUTING.md first.
