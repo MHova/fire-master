@@ -156,6 +156,22 @@ for itself, or the one question that actually mattered — *which year does cash
 and what fixes it?* So I built the tool I needed, on top of the data I already had. FIREMaster
 is that tool, cleaned up so you can run it on yours.
 
+## License — source-published, free for personal use
+
+This repo is public so you can **audit everything that touches your financial data**: read
+the source, watch every update as a diff, and verify the chain end-to-end — the GHCR images
+you run are built from this code by [public GitHub Actions](.github/workflows/), so what you
+read is what you pull.
+
+**Free to self-host for personal, noncommercial use — yours forever.** This is *not* open
+source: commercial use of any kind (offering it as a service, using it with clients,
+deploying it inside a company, selling forks) requires a separate license from the author.
+Full terms: [LICENSE.md](LICENSE.md) (PolyForm Noncommercial 1.0.0 — about one page, plain
+English).
+
+Bug reports are welcome ([CONTRIBUTING.md](CONTRIBUTING.md)); security issues go to a
+private channel ([SECURITY.md](SECURITY.md)).
+
 ## Documentation
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — design philosophy, the two-interface model, projection engine internals
