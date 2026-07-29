@@ -211,7 +211,7 @@ export default function DashboardPage() {
               // Tooltip lives on the SPAN: browsers suppress mouse events on
               // disabled controls, so a title on the button itself never shows.
               <span
-                title="Disabled in the demo — the full app syncs your live Monarch Money accounts and transactions automatically. Get it at firemaster.io"
+                title="Disabled in the demo — the full app syncs your live Monarch Money accounts and transactions automatically. Free for personal use: github.com/gdb-mtx/fire-master"
                 className="cursor-not-allowed"
               >
                 <button

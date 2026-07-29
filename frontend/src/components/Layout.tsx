@@ -160,9 +160,12 @@ export default function Layout({ children }: { children: ReactNode }) {
                 <span className="sm:hidden">Demo</span>
               </span>
               {/* The demo's only exit path home — without it the demo is a dead end
-                  (every mention of firemaster.io was hover-only before this) */}
+                  (every mention of firemaster.io was hover-only before this).
+                  Lands on the TOP of the page (story first), not #early-access — the
+                  r/MM mod condition is commerce-free end-to-end, so no demo link may
+                  jump straight to a section containing a price. */}
               <a
-                href="https://firemaster.io/?utm_source=demo#early-access"
+                href="https://firemaster.io/?utm_source=demo"
                 target="_blank"
                 rel="noopener"
                 className="text-xs px-2.5 py-1 rounded bg-[var(--green)] text-[var(--bg-primary)] font-medium hover:opacity-90 transition-opacity whitespace-nowrap"
