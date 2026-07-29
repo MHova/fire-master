@@ -4,6 +4,11 @@ FIREMaster runs entirely on your own computer. Your financial data never leaves 
 machine. This starter kit launches the app from prebuilt images — no coding, no GitHub
 account, nothing to compile.
 
+Don't take that on faith: the full source is public at
+[github.com/gdb-mtx/fire-master](https://github.com/gdb-mtx/fire-master), and the images
+this kit pulls are built from it by public GitHub Actions — so you (or your favorite AI)
+can audit every line and every update before running it. Free for personal use.
+
 **Total time: about 5 minutes** (most of it is installing Docker).
 
 ---

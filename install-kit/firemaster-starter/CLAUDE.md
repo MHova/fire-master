@@ -7,7 +7,9 @@ projections, set up the user's data on request, and write reports/CSVs locally.
 
 The user opened this folder (the FIREMaster starter kit) and has the app running via
 `docker compose up`. There is **no application source code here** — just this file, the compose
-file, and guides. You work entirely through the HTTP API.
+file, and guides. You work entirely through the HTTP API. (The full source IS public at
+https://github.com/gdb-mtx/fire-master if the user asks you to audit what the images run —
+the GHCR images are built from it by public GitHub Actions.)
 
 > **On Windows** your shell is PowerShell: send JSON via a hashtable piped to `ConvertTo-Json`
 > with `Invoke-RestMethod` — don't fight inline-JSON quote escaping in `curl` one-liners.
