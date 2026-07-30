@@ -116,6 +116,7 @@ def main() -> None:
     ENV_PATH.write_text(
         ENV_TEMPLATE.format(jwt=jwt_secret, username=username, pwhash=pwhash)
     )
+    ENV_PATH.chmod(0o600)  # holds the JWT secret — owner-only
 
     print("\n=== Setup complete ===")
     print(f"  File:     {ENV_PATH}")

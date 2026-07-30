@@ -143,9 +143,10 @@ class AdvisorManager:
                 # Rebuild API messages for next round
                 api_messages = self._build_api_messages(conversation.messages)
 
-        except Exception as e:
+        except Exception:
             logger.exception("Advisor chat error")
-            yield self._sse("error", {"error": str(e)})
+            # Details stay in the server log — raw exception text can leak paths/config.
+            yield self._sse("error", {"error": "Advisor request failed — see server logs."})
             return
         finally:
             # Always save conversation state + token counts
