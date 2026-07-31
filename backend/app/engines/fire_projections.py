@@ -743,10 +743,18 @@ class FireProjectionsEngine:
         # Get retirement account balances for financial impact labels
         breakdown = await self._compute_net_worth_breakdown()
 
-        # SS amounts from config
+        # SS amounts from config. Engine-wide semantic: social_security_monthly is the
+        # benefit AT social_security_start_age (that's how both projection engines apply
+        # it), NOT the FRA-67 amount. Back into the implied full benefit via approximate
+        # SSA claiming factors, then derive both milestone figures from that — assuming
+        # the configured amount was the full benefit double-reduced it for anyone who
+        # entered their age-62 figure (field-reported the day after launch).
+        _SSA_FACTORS = {62: 0.70, 63: 0.75, 64: 0.80, 65: 0.867, 66: 0.933, 67: 1.0,
+                        68: 1.08, 69: 1.16, 70: 1.24}
         ss_monthly = config.social_security_monthly or 0
-        ss_full = _cents_to_dollars(ss_monthly) if ss_monthly else 0
-        # Early SS at 62 is ~70% of full benefit at 67
+        ss_start_age = min(max(int(config.social_security_start_age or 67), 62), 70)
+        ss_at_start = _cents_to_dollars(ss_monthly) if ss_monthly else 0
+        ss_full = round(ss_at_start / _SSA_FACTORS[ss_start_age]) if ss_at_start else 0
         ss_early = round(ss_full * 0.70)
         healthcare_monthly = _cents_to_dollars(config.healthcare_monthly_cost or 0)
 
