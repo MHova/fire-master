@@ -144,8 +144,8 @@ docker compose up            # rebuilds the world; data still there
 
 ## Still open (future, not blocking)
 
-- ~~**Multi-arch prebuilt images:**~~ **Done** (Jun 2026) — Phase 1 of `strategy/TIERS_PLAN.md`
-  (private repo). `.github/workflows/docker-images.yml` builds amd64 + arm64 backend/frontend
+- ~~**Multi-arch prebuilt images:**~~ **Done** (Jun 2026).
+  `.github/workflows/docker-images.yml` builds amd64 + arm64 backend/frontend
   images and pushes them to GHCR on push-to-main (path-filtered) + manual dispatch. Both
   `docker-compose.yml` services now carry an `image:` alongside `build:`, so `docker compose up`
   **pulls** (`docker compose pull` to refresh) and `up --build` / offline falls back to a local
@@ -158,7 +158,7 @@ docker compose up            # rebuilds the world; data still there
 
 ## Prebuilt images (GHCR) and the standalone compose
 
-> Phase 1 + the Phase 2 compose file of `strategy/TIERS_PLAN.md` (private repo). The point:
+> The point:
 > decouple *shipping the product* from *shipping the code* — users pull images, they don't clone.
 
 ### The workflow — `.github/workflows/docker-images.yml`
