@@ -30,6 +30,12 @@ FIREMaster is deliberately built as two layers (see [ARCHITECTURE.md](ARCHITECTU
    scenario stress-tests, spending audits, tax-year prep. This is the feature the dashboard
    is just the front end for. See [docs/CLAUDE_CODE_USAGE.md](docs/CLAUDE_CODE_USAGE.md).
 
+> **Claude is optional — but it's where the strength lives.** The app is complete without any
+> AI: every page, projection, and scenario works standalone, and nothing calls out to any AI
+> service. Add Claude Code (any Opus- or Fable-class model) and the same app becomes a
+> financial analyst you can interrogate in plain English. Required: no. The reason this app
+> exists: yes.
+
 ## Monarch by design
 
 FIREMaster does **not** connect to your banks. [Monarch Money](https://www.monarchmoney.com)

@@ -4,9 +4,9 @@
 
 The defining architectural decision of FIREMaster emerged accidentally during development. The original spec positioned an in-app AI advisor (Claude API chat panel) as the platform's "key differentiator." But through building it, we discovered the real power architecture:
 
-**Claude Code (Opus 4.6) is the primary analysis tool — not the in-app advisor.**
+**Claude Code (Opus or Fable) is the primary analysis tool — not the in-app advisor.**
 
-The in-app advisor is limited by design: constrained context window, predefined tool schemas, per-API-call costs, and a smaller model (Sonnet). Claude Code, by contrast, has full codebase access, can query any backend API directly, read and write files, execute scripts, iterate on analysis, and reason with the full power of Opus 4.6. The cost of the Anthropic API per call was the constraint that revealed the better design.
+The in-app advisor is limited by design: constrained context window, predefined tool schemas, per-API-call costs, and a smaller model (Sonnet). Claude Code, by contrast, has full codebase access, can query any backend API directly, read and write files, execute scripts, iterate on analysis, and reason with the full power of the strongest available Claude model — Opus- or Fable-class; deliberately no version number here, use the current best. The cost of the Anthropic API per call was the constraint that revealed the better design.
 
 This isn't a workaround — it's the optimal architecture for a single-user power tool.
 
@@ -28,7 +28,7 @@ Neither is the "real" UI. They're complementary. The backend API layer is the sh
                        ▼                     ▼
         ┌────────────────────────┐  ┌────────────────────────┐
         │  Frontend              │  │  Claude Code           │
-        │  (React)               │  │  (Opus 4.6)            │
+        │  (React)               │  │  (Opus / Fable)        │
         │                        │  │                        │
         │  ● Dashboards          │  │  ● Deep analysis       │
         │  ● Charts              │  │  ● Scenario runs       │
