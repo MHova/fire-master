@@ -10,23 +10,24 @@ post-install configuration steps.
 | Tool | Why | Check |
 |---|---|---|
 | [Docker Desktop](https://www.docker.com/products/docker-desktop/) | runs the **whole** stack in containers — Postgres 16, Redis, Python 3.12, Node | `docker compose version` |
-| [GitHub CLI (`gh`)](https://cli.github.com/) | authenticate + clone this private repo | `gh --version` |
 
 That's it — **no Python, uv, Node, or shell tooling on your machine.** They all live inside
-the containers. (`git` ships with macOS; on Windows it's installed separately — see below.)
+the containers. The repo is public, so cloning needs no GitHub account or authentication —
+plain `git` does it (`git` ships with macOS; on Windows it's installed separately — see
+below). No git at all? Download the source as a zip from the
+[repo page](https://github.com/gdb-mtx/fire-master) (green **Code** button → Download ZIP)
+and unzip it — updating later is just re-downloading.
 
 - **macOS / Linux**: install [Homebrew](https://brew.sh/) if you don't have it yet
   (`/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`),
   then:
   ```bash
   brew install --cask docker    # Docker Desktop
-  brew install gh               # GitHub CLI
   ```
-- **Windows**: open PowerShell and run all three:
+- **Windows**: open PowerShell and run both:
   ```powershell
   winget install --id Docker.DockerDesktop -e --accept-package-agreements --accept-source-agreements
   winget install --id Git.Git -e --accept-package-agreements --accept-source-agreements
-  winget install --id GitHub.cli -e --accept-package-agreements --accept-source-agreements
   ```
   Docker Desktop sets up WSL2 for you (**one reboot**). You do **not** install or manage an
   Ubuntu distro, and you never touch bash.
@@ -38,12 +39,11 @@ the containers. (`git` ships with macOS; on Windows it's installed separately �
 ## 2. Clone and configure
 
 ```bash
-gh auth login            # choose: GitHub.com → HTTPS → Login with a web browser
-                         # ↑ It prints a one-time code IN THE TERMINAL — paste that code
-                         #   into the browser prompt (it is NOT in any GitHub app).
-gh repo clone gdb-mtx/fire-master firemaster && cd firemaster
+git clone https://github.com/gdb-mtx/fire-master.git firemaster && cd firemaster
 docker compose run --rm backend uv run python -m app.setup
 ```
+
+(No login, no account — the repo is public.)
 
 `app.setup` creates `backend/.env`: it generates a random JWT secret and asks you to choose an
 **admin password** (stored as a bcrypt hash — the plaintext is never written anywhere).

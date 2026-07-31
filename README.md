@@ -49,8 +49,9 @@ need Monarch to try the app:
 
 ## Quick start
 
-Prerequisites: **[Docker Desktop](https://www.docker.com/products/docker-desktop/)** and the
-**[GitHub CLI (`gh`)](https://cli.github.com/)**. For the full AI-analyst experience (the
+Prerequisites: **[Docker Desktop](https://www.docker.com/products/docker-desktop/)** — that's
+it (the repo is public; plain `git clone` needs no account, and there's a no-git zip on the
+repo page under **Code → Download ZIP**). For the full AI-analyst experience (the
 reason this app exists), add **[Claude Code](https://claude.com/claude-code)** with a
 [Pro or Max](https://claude.ai/) subscription — see
 [docs/CLAUDE_CODE_USAGE.md](docs/CLAUDE_CODE_USAGE.md). No Python, Node, or shell tooling on
@@ -58,8 +59,7 @@ your machine. Works on macOS, Windows, and Linux. (On Windows, Docker Desktop in
 itself — one reboot, then the commands below.)
 
 ```bash
-gh auth login                                         # GitHub.com → HTTPS → browser (paste the code shown in terminal)
-gh repo clone gdb-mtx/fire-master firemaster && cd firemaster
+git clone https://github.com/gdb-mtx/fire-master.git firemaster && cd firemaster
 
 docker compose run --rm backend uv run python -m app.setup   # one-time: JWT secret + your admin password
 docker compose up                                     # pulls prebuilt images + starts everything; migrations + demo data load automatically
