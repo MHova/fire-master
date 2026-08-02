@@ -45,6 +45,10 @@ async def get_withdrawal_plan(
         default=True,
         description="Enable bracket-fill Roth conversions during the golden window",
     ),
+    scenario_id: UUID | None = Query(
+        default=None,
+        description="Plan against a specific scenario; defaults to the active scenario (or base config)",
+    ),
     _user: str = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -55,6 +59,7 @@ async def get_withdrawal_plan(
         years=years,
         target_bracket_rate=target_bracket,
         roth_conversions_enabled=roth_conversions,
+        scenario_id=scenario_id,
     )
     return plan
 
@@ -62,12 +67,17 @@ async def get_withdrawal_plan(
 @router.get("/roth-conversion-plan", response_model=RothConversionPlanResponse)
 async def get_roth_conversion_plan(
     target_bracket: float = Query(default=0.22, description="Fill up to this bracket rate"),
+    scenario_id: UUID | None = Query(
+        default=None,
+        description="Plan against a specific scenario; defaults to the active scenario (or base config)",
+    ),
     _user: str = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Recommended Roth conversion ladder with tax cost and lifetime savings."""
     engine = TaxEngine(db)
-    plan = await engine.plan_roth_conversions(target_bracket_rate=target_bracket)
+    plan = await engine.plan_roth_conversions(
+        target_bracket_rate=target_bracket, scenario_id=scenario_id)
     return plan
 
 
@@ -83,7 +93,7 @@ async def get_aca_analysis(
     # Get household size from config
     from app.engines.fire_projections import FireProjectionsEngine
     fire_engine = FireProjectionsEngine(db)
-    config = await fire_engine.get_or_create_config()
+    config = await fire_engine.get_effective_config()
     tax_config = engine._get_tax_config(config)
     return ACAAnalysisResponse(
         magi=aca["magi"],

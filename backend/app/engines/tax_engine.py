@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import uuid as uuid_mod
 from dataclasses import dataclass, field
 from datetime import date
 from enum import Enum
@@ -615,6 +616,7 @@ class TaxEngine:
         years: int = 10,
         target_bracket_rate: float = 0.22,
         roth_conversions_enabled: bool = True,
+        scenario_id: uuid_mod.UUID | None = None,
     ) -> WithdrawalPlan:
         """Produce a year-by-year tax-aware withdrawal plan.
 
@@ -647,11 +649,14 @@ class TaxEngine:
         spending need but contributes nothing to ordinary income, FICA, or
         MAGI. Enter gross amounts with is_taxable=True to have the engine
         tax them.
+
+        Config comes from get_effective_config (active scenario merged, or
+        an explicit scenario_id) — same as the projection engines.
         """
         from app.engines.fire_projections import FireProjectionsEngine
 
         fire_engine = FireProjectionsEngine(self.db)
-        config = await fire_engine.get_or_create_config()
+        config = await fire_engine.get_effective_config(scenario_id)
         tax_config = self._get_tax_config(config)
         filing_status = tax_config["filing_status"]
         state_rate = tax_config["state_tax_rate"]
@@ -913,6 +918,7 @@ class TaxEngine:
     async def plan_roth_conversions(
         self,
         target_bracket_rate: float = 0.22,
+        scenario_id: uuid_mod.UUID | None = None,
     ) -> RothConversionPlan:
         """Plan a Roth conversion ladder during the early retirement window.
 
@@ -923,7 +929,7 @@ class TaxEngine:
         from app.engines.fire_projections import FireProjectionsEngine
 
         fire_engine = FireProjectionsEngine(self.db)
-        config = await fire_engine.get_or_create_config()
+        config = await fire_engine.get_effective_config(scenario_id)
         tax_config = self._get_tax_config(config)
         filing_status = tax_config["filing_status"]
         state_rate = tax_config["state_tax_rate"]
@@ -1061,7 +1067,7 @@ class TaxEngine:
         from app.engines.fire_projections import FireProjectionsEngine
 
         fire_engine = FireProjectionsEngine(self.db)
-        config = await fire_engine.get_or_create_config()
+        config = await fire_engine.get_effective_config()
         tax_config = self._get_tax_config(config)
         filing_status = tax_config["filing_status"]
         state_rate = tax_config["state_tax_rate"]
@@ -1175,7 +1181,7 @@ class TaxEngine:
         # Compute scenario with adjustments
         from app.engines.fire_projections import FireProjectionsEngine
         fire_engine = FireProjectionsEngine(self.db)
-        config = await fire_engine.get_or_create_config()
+        config = await fire_engine.get_effective_config()
         tax_config = self._get_tax_config(config)
         filing_status = tax_config["filing_status"]
         state_rate = tax_config["state_tax_rate"]

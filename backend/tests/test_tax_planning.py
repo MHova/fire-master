@@ -90,9 +90,13 @@ def _make_planning_engine(
 
 
 def _patch_config(config):
-    """TaxEngine constructs a FireProjectionsEngine internally for config."""
+    """TaxEngine constructs a FireProjectionsEngine internally for config.
+
+    Patches get_effective_config — the engine layer reads the scenario-merged
+    config (fire-master#5 follow-up), not the base one.
+    """
     return patch(
-        "app.engines.fire_projections.FireProjectionsEngine.get_or_create_config",
+        "app.engines.fire_projections.FireProjectionsEngine.get_effective_config",
         AsyncMock(return_value=config),
     )
 
@@ -380,6 +384,48 @@ class TestWithdrawalSequence:
         # ((170k − 60k)·1.02 − 60k)·1.02 = 53,244 — year 2 drains it exactly
         expected_y2 = ((170_000 - 60_000) * 1.02 - 60_000) * 1.02
         assert plan2.years[2].from_cash == pytest.approx(expected_y2, abs=1.0)
+
+
+# ---------------------------------------------------------------------------
+# Scenario awareness (fire-master#5 follow-up: the tax planners read the
+# EFFECTIVE config and forward an explicit scenario_id, like monte-carlo)
+# ---------------------------------------------------------------------------
+
+class TestScenarioAwareness:
+    async def test_withdrawal_plan_forwards_scenario_id(self, base_fire_config, frozen_today_tax):
+        import uuid
+
+        sid = uuid.uuid4()
+        engine = _make_planning_engine(cash=100_000)
+        with _patch_config(base_fire_config) as eff:
+            await engine.optimize_withdrawal_sequence(
+                years=1, roth_conversions_enabled=False, scenario_id=sid)
+        eff.assert_awaited_once_with(sid)
+
+    async def test_roth_plan_forwards_scenario_id(self, base_fire_config, frozen_today_tax):
+        import uuid
+
+        sid = uuid.uuid4()
+        engine = _make_planning_engine(deferred=100_000)
+        with _patch_config(base_fire_config) as eff:
+            await engine.plan_roth_conversions(scenario_id=sid)
+        eff.assert_awaited_once_with(sid)
+
+    async def test_scenario_spending_changes_the_plan(self, frozen_today_tax):
+        """A scenario that overrides target_annual_spending must change the
+        withdrawal sequence — pre-fix, scenarios had zero effect here."""
+        base = _make_fire_config(target_annual_spending=6_000_000)   # $60K
+        merged = _make_fire_config(target_annual_spending=12_000_000)  # $120K override
+        engine = _make_planning_engine(taxable=500_000)
+        with _patch_config(base):
+            plan_base = await engine.optimize_withdrawal_sequence(
+                years=1, roth_conversions_enabled=False)
+        engine2 = _make_planning_engine(taxable=500_000)
+        with _patch_config(merged):
+            plan_scenario = await engine2.optimize_withdrawal_sequence(
+                years=1, roth_conversions_enabled=False)
+        assert plan_base.years[0].from_taxable == pytest.approx(60_000)
+        assert plan_scenario.years[0].from_taxable == pytest.approx(120_000)
 
 
 # ---------------------------------------------------------------------------
