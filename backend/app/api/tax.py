@@ -1,5 +1,7 @@
 """Tax planning API routes."""
 
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -141,9 +143,13 @@ async def sepp_calculator(
 async def run_monte_carlo(
     runs: int = Query(default=1000, ge=100, le=10000),
     seed: int | None = Query(default=None, description="Fix the RNG seed for reproducible runs"),
+    scenario_id: UUID | None = Query(
+        default=None,
+        description="Simulate a specific scenario; defaults to the active scenario (or base config)",
+    ),
     _user: str = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Monte Carlo simulation — correlated stochastic returns + inflation, real terms."""
     engine = MonteCarloEngine(db)
-    return await engine.run_simulation(n_runs=runs, seed=seed)
+    return await engine.run_simulation(n_runs=runs, seed=seed, scenario_id=scenario_id)

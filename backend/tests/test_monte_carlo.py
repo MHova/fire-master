@@ -38,7 +38,7 @@ def _mc_env(config, *, net_worth=1_500_000.0, spending_cents=15_300_000, income_
     """Patch every DB touchpoint the MC engine reaches through its sub-engines."""
     with ExitStack() as stack:
         stack.enter_context(patch.object(
-            FireProjectionsEngine, "get_or_create_config",
+            FireProjectionsEngine, "get_effective_config",
             AsyncMock(return_value=config)))
         stack.enter_context(patch.object(
             FireProjectionsEngine, "_get_annual_spending",
@@ -182,3 +182,133 @@ class TestDepletion:
         assert result.success_rate == 0.0
         assert result.best_final_nw < 0
         assert len(result.percentile_curves) == TOTAL_YEARS + 1
+
+
+def _make_source(income_type, annual_cents, *, start=None, end=None, growth=None):
+    from unittest.mock import MagicMock
+
+    from app.models.income_source import IncomeSource
+
+    s = MagicMock(spec=IncomeSource)
+    s.name = "test source"
+    s.income_type = income_type
+    s.annual_amount = annual_cents
+    s.frequency = "monthly"
+    s.start_date = start
+    s.end_date = end
+    s.is_active = True
+    s.growth_rate = growth
+    s.is_taxable = True
+    return s
+
+
+class TestIncomeTiming:
+    """Regression tests for fire-master#5: run_simulation must reuse
+    _income_at_month (date bounds, growth_rate, retirement cutoff by
+    per-source end_date) and the scenario-aware effective config, instead
+    of pre-summing annual_amount over all active sources."""
+
+    ZERO_VOL = {"monte_carlo": {"return_std": 0, "inflation_std": 0}}
+
+    def _config(self, base):
+        base.custom_assumptions = {**base.custom_assumptions, **self.ZERO_VOL}
+        return base
+
+    async def test_uses_effective_config_and_forwards_scenario_id(
+        self, base_fire_config, frozen_today_mc,
+    ):
+        """The engine resolves config through get_effective_config with the
+        caller's scenario_id — the pre-fix engine read the base config and
+        silently ignored scenarios."""
+        import uuid
+
+        engine = MonteCarloEngine(db=None)
+        sid = uuid.uuid4()
+        with ExitStack() as stack:
+            eff = AsyncMock(return_value=base_fire_config)
+            stack.enter_context(patch.object(
+                FireProjectionsEngine, "get_effective_config", eff))
+            stack.enter_context(patch.object(
+                FireProjectionsEngine, "_get_annual_spending",
+                AsyncMock(return_value=15_300_000)))
+            stack.enter_context(patch.object(
+                FireProjectionsEngine, "_get_income_sources",
+                AsyncMock(return_value=[])))
+            stack.enter_context(patch.object(
+                NetWorthEngine, "calculate_current",
+                AsyncMock(return_value=MagicMock(net_worth=1_500_000.0))))
+            await engine.run_simulation(n_runs=10, seed=1, scenario_id=sid)
+        eff.assert_awaited_once_with(sid)
+
+    async def test_ended_and_future_sources_contribute_nothing(
+        self, base_fire_config, frozen_today_mc,
+    ):
+        """A salary that ended before today and a source starting after the
+        horizon must be identical to having no sources at all. The pre-fix
+        engine summed both as perpetually active."""
+        from datetime import date as real_date
+
+        from app.models.enums import IncomeType
+
+        config = self._config(base_fire_config)
+        engine = MonteCarloEngine(db=None)
+
+        dead_sources = [
+            _make_source(IncomeType.SALARY, 25_000_000, end=real_date(2026, 3, 24)),
+            _make_source(IncomeType.RENTAL, 1_200_000, start=real_date(2090, 1, 1)),
+        ]
+        with _mc_env(config, income_sources=dead_sources):
+            with_dead = await engine.run_simulation(n_runs=20, seed=2)
+        with _mc_env(config, income_sources=[]):
+            without = await engine.run_simulation(n_runs=20, seed=2)
+
+        assert with_dead.percentile_50 == without.percentile_50
+        assert with_dead.success_rate == without.success_rate
+
+    async def test_growth_rate_compounds_real(self, base_fire_config, frozen_today_mc):
+        """growth_rate is a nominal raise deflated to real: growth at the
+        inflation rate is flat real (same result as no growth); growth above
+        inflation strictly improves the outcome. The pre-fix engine dropped
+        growth_rate entirely."""
+        from app.models.enums import IncomeType
+
+        config = self._config(base_fire_config)
+        engine = MonteCarloEngine(db=None)
+
+        def rental(growth):
+            return [_make_source(IncomeType.RENTAL, 3_960_000, growth=growth)]
+
+        with _mc_env(config, income_sources=rental(None)):
+            flat = await engine.run_simulation(n_runs=20, seed=3)
+        with _mc_env(config, income_sources=rental(3.0)):  # = inflation → flat real
+            at_inflation = await engine.run_simulation(n_runs=20, seed=3)
+        with _mc_env(config, income_sources=rental(6.0)):  # above inflation
+            real_raise = await engine.run_simulation(n_runs=20, seed=3)
+
+        assert at_inflation.percentile_50 == pytest.approx(flat.percentile_50, rel=1e-4)
+        assert real_raise.percentile_50 > flat.percentile_50
+
+    async def test_salary_with_explicit_end_date_survives_retirement(
+        self, base_fire_config, frozen_today_mc,
+    ):
+        """A salary whose own end_date is later than the config retirement
+        date keeps paying until that end_date (staggered household
+        retirement). The pre-fix engine cut ALL earned income at the single
+        retirement year."""
+        from datetime import date as real_date
+
+        from app.models.enums import IncomeType
+
+        config = self._config(base_fire_config)  # retires Jul 2026 (age 53)
+        engine = MonteCarloEngine(db=None)
+
+        with _mc_env(config, income_sources=[
+            _make_source(IncomeType.SALARY, 12_000_000),  # cut at retirement
+        ]):
+            cut_at_retirement = await engine.run_simulation(n_runs=20, seed=4)
+        with _mc_env(config, income_sources=[
+            _make_source(IncomeType.SALARY, 12_000_000, end=real_date(2031, 7, 1)),
+        ]):
+            spouse_works_5_more = await engine.run_simulation(n_runs=20, seed=4)
+
+        assert spouse_works_5_more.percentile_50 > cut_at_retirement.percentile_50

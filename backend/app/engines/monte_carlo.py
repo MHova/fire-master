@@ -19,6 +19,12 @@ History note: the previous implementation drew a REAL return but inflated
 spending/income NOMINALLY — double-counting inflation and making every fan
 chart too pessimistic. Fixed 2026-07-11.
 
+Second history note (fire-master#5, fixed 2026-08-01): income used to be
+pre-summed by income_type over all active sources — ignoring start/end
+dates, growth_rate, per-source retirement cutoff, and the active scenario.
+Income now comes from the shared _income_at_month() helper against the
+EFFECTIVE config, same as project_lifetime.
+
 Overrides via fire_config.custom_assumptions["monte_carlo"]:
   return_std (0.16), inflation_std (0.015), correlation (-0.25).
 Nominal return mean and inflation mean come from the base config
@@ -30,6 +36,7 @@ from __future__ import annotations
 import logging
 import math
 import random
+import uuid as uuid_mod
 from dataclasses import dataclass
 from datetime import date
 
@@ -97,6 +104,7 @@ class MonteCarloEngine:
         self,
         n_runs: int = 1000,
         seed: int | None = None,
+        scenario_id: uuid_mod.UUID | None = None,
     ) -> MonteCarloResponse:
         """Run N Monte Carlo simulations with randomized annual returns.
 
@@ -108,7 +116,7 @@ class MonteCarloEngine:
         from app.engines.net_worth import NetWorthEngine
 
         fire_engine = FireProjectionsEngine(self.db)
-        config = await fire_engine.get_or_create_config()
+        config = await fire_engine.get_effective_config(scenario_id)
         nw_engine = NetWorthEngine(self.db)
         nw = await nw_engine.calculate_current()
 
@@ -158,16 +166,23 @@ class MonteCarloEngine:
             pension_start_date = config.date_of_birth + relativedelta(years=config.pension_start_age)
             pension_start_year = max(0, pension_start_date.year - today.year)
 
-        # Pre-compute income from sources by category (flat real)
-        earned_annual = 0.0  # stops at retirement
-        continuing_annual = 0.0  # rental, dividends, etc. — continues post-retirement
-        for src in income_sources:
-            if not src.is_active:
-                continue
-            if src.income_type.value in ("salary", "bonus", "side_hustle"):
-                earned_annual += src.annual_amount / 100
-            else:
-                continuing_annual += src.annual_amount / 100
+        # Pre-compute source income per year via the shared, scenario-aware
+        # helper (date bounds, retirement cutoff, real growth compounding) —
+        # deterministic, so it lives outside the run loop. Each year sums 12
+        # monthly evaluations, matching project_lifetime's cadence so mid-year
+        # retirement and source start/end dates land in the right year.
+        inflation_pct = config.expected_inflation_rate
+        income_by_year: list[float] = []
+        for yr in range(total_years):
+            year_cents = 0
+            for m in range(12):
+                month_idx = yr * 12 + m
+                current = today + relativedelta(months=month_idx)
+                year_cents += fire_engine._income_at_month(
+                    income_sources, current, retirement_date,
+                    month_idx / 12.0, inflation_pct,
+                )
+            income_by_year.append(year_cents / 100)
 
         # Starting age for spending-phase lookup
         start_age = fire_engine._compute_age(config, today) if config.date_of_birth else 30
@@ -192,10 +207,8 @@ class MonteCarloEngine:
                 if is_retired:
                     yr_spending *= _spending_multiplier(age)
 
-                # Income: flat real
-                yr_income = continuing_annual
-                if not is_retired:
-                    yr_income += earned_annual
+                # Income: flat real, from the shared per-year precompute
+                yr_income = income_by_year[yr]
                 if yr >= ss_start_year:
                     yr_income += ss_annual
                 if yr >= pension_start_year:
