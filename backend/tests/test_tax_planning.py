@@ -14,9 +14,11 @@ Documented simplifications (asserted here as intended behavior, not bugs):
   today's levels (≈ IRS inflation indexing). Taxes are reported but not
   deducted from balances. Shortfalls draw through the waterfall
   pre-retirement too.
-- total_withdrawn excludes cash draws (cash is already-taxed money; the
-  average_effective_rate denominator is withdrawals with tax consequences).
-  Per-year total_income/after_tax_income DO include cash draws.
+- total_withdrawn excludes cash draws (cash is already-taxed money).
+  average_effective_rate = total tax / total GROSS income (income sources +
+  all draws), matching each year's effective_rate — fire-master#4 killed the
+  old withdrawals-only denominator that could exceed 100%. Per-year
+  total_income/after_tax_income DO include cash draws.
 """
 
 from datetime import date
@@ -58,7 +60,7 @@ def _acct(dollars: float) -> MagicMock:
 
 
 def _income_source(name: str, itype: IncomeType, annual_dollars: float,
-                   start=None, end=None) -> MagicMock:
+                   start=None, end=None, taxable=True) -> MagicMock:
     s = MagicMock()
     s.name = name
     s.income_type = itype
@@ -67,6 +69,7 @@ def _income_source(name: str, itype: IncomeType, annual_dollars: float,
     s.end_date = end
     s.is_active = True
     s.growth_rate = None
+    s.is_taxable = taxable
     return s
 
 
@@ -377,6 +380,118 @@ class TestWithdrawalSequence:
         # ((170k − 60k)·1.02 − 60k)·1.02 = 53,244 — year 2 drains it exactly
         expected_y2 = ((170_000 - 60_000) * 1.02 - 60_000) * 1.02
         assert plan2.years[2].from_cash == pytest.approx(expected_y2, abs=1.0)
+
+
+# ---------------------------------------------------------------------------
+# is_taxable gating (fire-master#4)
+# ---------------------------------------------------------------------------
+
+class TestIsTaxable:
+    """Regression tests for fire-master#4: IncomeSource.is_taxable was
+    stored and echoed by the API but never read by the engine layer — every
+    active source was taxed by income_type alone."""
+
+    async def test_non_taxable_source_pays_zero_tax(self, frozen_today_tax):
+        """A non-taxable source covering all spending → zero tax, zero
+        withdrawals, zero effective rate. The pre-fix engine taxed it as
+        ordinary income."""
+        config = _make_fire_config(target_annual_spending=6_000_000)  # $60K
+        benefit = _income_source("VA benefit", IncomeType.OTHER, 80_000,
+                                 taxable=False)
+        engine = _make_planning_engine(deferred=0, income_sources=[benefit])
+        with _patch_config(config):
+            plan = await engine.optimize_withdrawal_sequence(
+                years=3, roth_conversions_enabled=False)
+        assert plan.total_withdrawn == 0
+        assert plan.total_tax_paid == 0
+        assert plan.average_effective_rate == 0
+        for y in plan.years:
+            assert y.total_tax == 0
+            assert y.magi == 0
+
+    async def test_taxable_flag_still_taxed(self, frozen_today_tax):
+        """Differential pair: the same source flagged taxable IS taxed —
+        the gate reads the flag, it doesn't blanket-exempt income."""
+        config = _make_fire_config(target_annual_spending=6_000_000)
+        gross = _income_source("Gross pension-ish", IncomeType.OTHER, 80_000,
+                               taxable=True)
+        engine = _make_planning_engine(deferred=0, income_sources=[gross])
+        with _patch_config(config):
+            plan = await engine.optimize_withdrawal_sequence(
+                years=3, roth_conversions_enabled=False)
+        assert plan.total_tax_paid > 0
+
+    async def test_non_taxable_salary_pays_no_fica(self, frozen_today_tax):
+        """A net-of-tax salary flagged non-taxable skips FICA too (it was
+        already withheld from the net amount)."""
+        config = _make_fire_config(
+            target_annual_spending=6_000_000, target_retirement_age=60)
+        net_salary = _income_source("Salary (net)", IncomeType.SALARY, 100_000,
+                                    taxable=False)
+        engine = _make_planning_engine(deferred=0, income_sources=[net_salary])
+        with _patch_config(config):
+            plan = await engine.optimize_withdrawal_sequence(
+                years=2, roth_conversions_enabled=False)
+        for y in plan.years:
+            assert y.fica_tax == 0
+            assert y.total_tax == 0
+
+    async def test_effective_rate_never_exceeds_100pct(self, frozen_today_tax):
+        """timswett's repro: taxable salary + non-taxable benefit, spending
+        covered by income (no withdrawals) over multiple years. The old
+        tax/withdrawals denominator produced >100% effective rates; the rate
+        is now tax over gross income."""
+        config = _make_fire_config(
+            target_annual_spending=9_000_000, target_retirement_age=60)  # $90K
+        salary = _income_source("Salary", IncomeType.SALARY, 100_000, taxable=True)
+        benefit = _income_source("Benefit", IncomeType.OTHER, 10_000, taxable=False)
+        engine = _make_planning_engine(
+            deferred=200_000, income_sources=[salary, benefit])
+        with _patch_config(config):
+            plan = await engine.optimize_withdrawal_sequence(
+                years=3, roth_conversions_enabled=False)
+        assert 0 < plan.average_effective_rate < 1
+
+    async def test_non_taxable_income_leaves_conversion_room_open(
+        self, frozen_today_tax,
+    ):
+        """Golden-window bracket-fill: a non-taxable source doesn't consume
+        bracket room, so the Roth conversion is larger by exactly its amount
+        vs the same source flagged taxable."""
+        def run(taxable_flag):
+            config = _make_fire_config(target_annual_spending=3_000_000)  # $30K
+            src = _income_source("Rental", IncomeType.RENTAL, 30_000,
+                                 taxable=taxable_flag)
+            return config, _make_planning_engine(
+                deferred=1_000_000, income_sources=[src])
+
+        config_t, engine_t = run(True)
+        with _patch_config(config_t):
+            plan_taxable = await engine_t.optimize_withdrawal_sequence(years=2)
+        config_n, engine_n = run(False)
+        with _patch_config(config_n):
+            plan_non_taxable = await engine_n.optimize_withdrawal_sequence(years=2)
+
+        # 2027 is the first retired year (persona retires Jul 2026)
+        conv_t = plan_taxable.years[1].roth_conversion
+        conv_n = plan_non_taxable.years[1].roth_conversion
+        assert conv_n - conv_t == pytest.approx(30_000, abs=1.0)
+
+    async def test_bracket_analysis_excludes_non_taxable(
+        self, base_fire_config, frozen_today_tax,
+    ):
+        """analyze_brackets had the same hole: non-taxable sources inflated
+        gross income, federal tax, FICA, and MAGI."""
+        salary = _income_source("Salary (net)", IncomeType.SALARY, 100_000,
+                                taxable=False)
+        rental = _income_source("Rental", IncomeType.RENTAL, 36_000, taxable=True)
+        engine = _make_planning_engine(
+            deferred=50_000, income_sources=[salary, rental])
+        with _patch_config(base_fire_config):
+            result = await engine.analyze_brackets()
+        assert result["gross_income"] == pytest.approx(36_000)
+        assert result["fica_tax"] == 0
+        assert result["aca"]["magi"] == pytest.approx(36_000)
 
 
 # ---------------------------------------------------------------------------

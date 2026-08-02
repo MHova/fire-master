@@ -641,6 +641,12 @@ class TaxEngine:
 
         Simplification: taxes are reported but not deducted from balances
         (the plan shows the tax cost of the sequence, not net-of-tax wealth).
+
+        IncomeSource.is_taxable gates the tax computation: a source flagged
+        non-taxable (or entered net-of-tax — flag it False) still offsets
+        spending need but contributes nothing to ordinary income, FICA, or
+        MAGI. Enter gross amounts with is_taxable=True to have the engine
+        tax them.
         """
         from app.engines.fire_projections import FireProjectionsEngine
 
@@ -667,6 +673,7 @@ class TaxEngine:
         year_plans: list[WithdrawalYearPlan] = []
         total_tax = 0.0
         total_withdrawn = 0.0
+        total_gross_all_years = 0.0
 
         # Track account balances across years
         deferred_balance = accounts.tax_deferred_balance
@@ -687,11 +694,19 @@ class TaxEngine:
             # Spending: flat in real terms (constant purchasing power)
             spending_need = annual_need
 
-            # Income from sources (SS, pension, rental, etc.)
+            # Income from sources (SS, pension, rental, etc.). Each type
+            # bucket tracks ALL income (it offsets spending need either way)
+            # plus a taxable portion gated by is_taxable — a source flagged
+            # non-taxable (or entered net-of-tax) covers spending but never
+            # enters the tax computation.
             earned_income = 0.0
             ss_income = 0.0
             pension_income = 0.0
             other_income = 0.0
+            taxable_earned = 0.0
+            taxable_ss = 0.0
+            taxable_pension = 0.0
+            taxable_other = 0.0
 
             for src in income_sources:
                 # Day-prorated contribution for this calendar year (an ended
@@ -711,12 +726,16 @@ class TaxEngine:
 
                 if src.income_type.value == "social_security":
                     ss_income += annual
+                    taxable_ss += annual if src.is_taxable else 0.0
                 elif src.income_type.value == "pension":
                     pension_income += annual
+                    taxable_pension += annual if src.is_taxable else 0.0
                 elif src.income_type.value in ("salary", "bonus", "side_hustle"):
                     earned_income += annual
+                    taxable_earned += annual if src.is_taxable else 0.0
                 else:
                     other_income += annual
+                    taxable_other += annual if src.is_taxable else 0.0
 
             # Social Security from config (if not in income sources) —
             # prorated in its first year (a mid-year start is half a year)
@@ -724,12 +743,14 @@ class TaxEngine:
                 ss_start = config.date_of_birth + relativedelta(years=config.social_security_start_age)
                 ss_income = (config.social_security_monthly * 12 / 100) * _year_fraction(
                     current_year, start=ss_start)
+                taxable_ss = ss_income
 
             # Pension from config — same first-year proration
             if config.pension_monthly and config.pension_start_age and config.date_of_birth and pension_income == 0:
                 pension_start = config.date_of_birth + relativedelta(years=config.pension_start_age)
                 pension_income = (config.pension_monthly * 12 / 100) * _year_fraction(
                     current_year, start=pension_start)
+                taxable_pension = pension_income
 
             total_non_withdrawal_income = earned_income + ss_income + pension_income + other_income
             withdrawal_needed = max(0, spending_need - total_non_withdrawal_income)
@@ -804,8 +825,8 @@ class TaxEngine:
                     if bracket["rate"] <= target_bracket_rate:
                         target_ceiling = bracket["up_to"]
                 ordinary_so_far = (
-                    earned_income + ss_income * 0.85 + pension_income
-                    + from_deferred + other_income
+                    taxable_earned + taxable_ss * 0.85 + taxable_pension
+                    + from_deferred + taxable_other
                 )
                 # Fill so POST-DEDUCTION taxable income lands exactly at the
                 # bracket ceiling — the conversion also absorbs any unused
@@ -815,25 +836,26 @@ class TaxEngine:
                 deferred_balance -= roth_conversion
                 roth_balance += roth_conversion
 
-            # Compute taxes (Roth conversion counts as ordinary income)
-            ordinary_income = earned_income + ss_income * 0.85 + pension_income + from_deferred + roth_conversion + other_income
+            # Compute taxes (Roth conversion counts as ordinary income) —
+            # only the is_taxable portion of each income bucket enters.
+            ordinary_income = taxable_earned + taxable_ss * 0.85 + taxable_pension + from_deferred + roth_conversion + taxable_other
             taxable_income = max(0, ordinary_income - std_deduction)
 
             federal_breakdown = self.compute_federal_tax(taxable_income, filing_status, brackets)
             cg_tax = self.compute_capital_gains_tax(capital_gains, taxable_income, filing_status)
             federal_tax = federal_breakdown.total_federal_tax + cg_tax
             state_tax = self.compute_state_tax(ordinary_income + capital_gains - std_deduction, state_rate)
-            fica_tax = self.compute_fica(earned_income, filing_status)
+            fica_tax = self.compute_fica(taxable_earned, filing_status)
             total_tax_year = federal_tax + state_tax + fica_tax
 
             magi = self.compute_magi(
-                earned_income=earned_income,
-                social_security=ss_income,
-                pension=pension_income,
+                earned_income=taxable_earned,
+                social_security=taxable_ss,
+                pension=taxable_pension,
                 deferred_withdrawals=from_deferred,
                 roth_conversions=roth_conversion,
                 capital_gains=capital_gains,
-                dividend_income=other_income,
+                dividend_income=taxable_other,
             )
 
             total_gross = (
@@ -864,6 +886,7 @@ class TaxEngine:
 
             total_tax += total_tax_year
             total_withdrawn += from_taxable + from_deferred + from_roth
+            total_gross_all_years += total_gross
 
             # Grow remaining balances (cash at its own yield, not market return)
             deferred_balance *= (1 + annual_return)
@@ -871,7 +894,10 @@ class TaxEngine:
             taxable_balance *= (1 + annual_return)
             cash_balance *= (1 + cash_yield)
 
-        avg_rate = total_tax / total_withdrawn if total_withdrawn > 0 else 0
+        # Effective rate over GROSS income (same denominator as each year's
+        # effective_rate) — dividing by withdrawals alone let income-year tax
+        # produce impossible >100% rates (fire-master#4).
+        avg_rate = total_tax / total_gross_all_years if total_gross_all_years > 0 else 0
 
         return WithdrawalPlan(
             years=year_plans,
@@ -944,9 +970,13 @@ class TaxEngine:
         while current < window_end and deferred_balance > 0:
             age = self._compute_age(config, current)
 
-            # Baseline income during retirement (non-earned)
+            # Baseline TAXABLE income during retirement (non-earned) — a
+            # non-taxable source doesn't fill brackets, so it leaves the
+            # full conversion room open (fire-master#4).
             baseline_income = 0.0
             for src in income_sources:
+                if not src.is_taxable:
+                    continue
                 if src.start_date and current < src.start_date:
                     continue
                 if src.end_date and current > src.end_date:
@@ -1044,14 +1074,18 @@ class TaxEngine:
         # its full annual value.
         income_sources = await self._get_active_income_sources()
         current_year = date.today().year
+        # Only is_taxable sources enter the bracket/FICA/MAGI math — a
+        # non-taxable (or net-of-tax) source is cash flow, not taxable
+        # income (fire-master#4).
         total_income = sum(
             _prorated_annual_for_year(s, current_year)
-            for s in income_sources if s.is_active
+            for s in income_sources if s.is_active and s.is_taxable
         )
         earned_income = sum(
             _prorated_annual_for_year(s, current_year)
             for s in income_sources
-            if s.income_type.value in ("salary", "bonus", "side_hustle") and s.is_active
+            if s.income_type.value in ("salary", "bonus", "side_hustle")
+            and s.is_active and s.is_taxable
         )
 
         taxable_income = max(0, total_income - std_deduction)
